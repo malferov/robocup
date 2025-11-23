@@ -1,0 +1,50 @@
+# general
+
+metric = true
+metricoutput = true
+nog64 = true
+nom6 = true
+zchange = 2.0mm
+zsafe = 2.0mm
+
+front = first-F_Cu.gbr
+front-output = first-F_Cu.gbr.nc
+drill = first.drl
+drill-output = first.drl.nc
+outline = first-Edge_Cuts.gbr
+outline-output = first-Edge_Cuts.gbr.nc
+
+# milling
+
+#mill-diameters = 0.4mm
+#mill-infeed = 0.15mm
+#zwork = -0.3mm
+mill-diameters = 0.1mm
+mill-infeed = 0.1mm
+zwork = -0.1mm
+extra-passes = 2
+
+mill-feed = 200mm/min
+mill-speed = 3000rpm
+#voronoi = true
+
+# drilling
+
+drill-feed = 20mm/min
+drill-side = front
+drill-speed = 3000rpm
+drills-available = 0.8mm
+nog81 = true
+zdrill = -1.4mm
+
+# cutting
+
+cut-feed = 100mm/min
+cut-infeed = 0.2mm
+cut-side = front
+cut-speed = 3000rpm
+cutter-diameter = 2mm
+zcut = -1.2mm
+bridges = 1.0mm
+bridgesnum = 4
+zbridges = -0.6mm
