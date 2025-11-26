@@ -7,12 +7,12 @@ nom6 = true
 zchange = 2.0mm
 zsafe = 2.0mm
 
-front = first-F_Cu.gbr
-front-output = first-F_Cu.gbr.nc
-drill = first.drl
-drill-output = first.drl.nc
-outline = first-Edge_Cuts.gbr
-outline-output = first-Edge_Cuts.gbr.nc
+front = p-F_Cu.gbr
+front-output = p-F_Cu.gbr.nc
+drill = p.drl
+drill-output = p.drl.nc
+outline = p-Edge_Cuts.gbr
+outline-output = p-Edge_Cuts.gbr.nc
 
 # milling
 
@@ -22,7 +22,7 @@ outline-output = first-Edge_Cuts.gbr.nc
 mill-diameters = 0.1mm
 mill-infeed = 0.1mm
 zwork = -0.1mm
-extra-passes = 2
+extra-passes = 1
 
 mill-feed = 200mm/min
 mill-speed = 3000rpm
