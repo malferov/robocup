@@ -10,8 +10,8 @@
 // Enter your WiFi credentials
 // ===========================
 /*
-const char *ssid = "WLNet";
-const char *password = "29735945";
+const char *ssid = "";
+const char *password = "";
 void startCameraServer();
 */
 typedef struct {
