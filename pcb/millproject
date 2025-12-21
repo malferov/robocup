@@ -7,31 +7,28 @@ nom6 = true
 zchange = 2.0mm
 zsafe = 2.0mm
 
-front = p-F_Cu.gbr
-front-output = p-F_Cu.gbr.nc
-drill = p.drl
-drill-output = p.drl.nc
-outline = p-Edge_Cuts.gbr
-outline-output = p-Edge_Cuts.gbr.nc
+back = driver_pcb-B_Cu.gbr
+back-output = driver_pcb-B_Cu.gbr.nc
+drill = driver_pcb.drl
+drill-output = driver_pcb.drl.nc
+outline = driver_pcb-Edge_Cuts.gbr
+outline-output = driver_pcb-Edge_Cuts.gbr.nc
 
 # milling
 
-#mill-diameters = 0.4mm
-#mill-infeed = 0.15mm
-#zwork = -0.3mm
 mill-diameters = 0.1mm
-mill-infeed = 0.1mm
-zwork = -0.1mm
-extra-passes = 1
+mill-infeed = 0.08mm
+zwork = -0.08mm
+#extra-passes = 0
 
-mill-feed = 200mm/min
+mill-feed = 100mm/min
 mill-speed = 3000rpm
 #voronoi = true
 
 # drilling
 
-drill-feed = 20mm/min
-drill-side = front
+drill-feed = 40mm/min
+drill-side = back
 drill-speed = 3000rpm
 drills-available = 0.8mm
 nog81 = true
@@ -41,7 +38,7 @@ zdrill = -1.4mm
 
 cut-feed = 100mm/min
 cut-infeed = 0.2mm
-cut-side = front
+cut-side = back
 cut-speed = 3000rpm
 cutter-diameter = 2mm
 zcut = -1.2mm

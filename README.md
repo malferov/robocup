@@ -1,5 +1,5 @@
-# robocup
-RoboCup Junior Nederland
+# RoboCup
+RoboCup Junior Netherlands team `CoreX`
 
 # Components
 - Motors: 25mm DC 12V GA-370 Low Speed Metal Gear Motor 400RPM 3.5 Watts 90 g
