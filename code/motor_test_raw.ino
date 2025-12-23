@@ -16,10 +16,10 @@
 // pin 2 = PWM
 
 const int motors[4][3] = {
-  {7, 2, 3},    // Motor 0
-  {4, 5, 6},    // Motor 1
-  {12, 11, 13}, // Motor 2
-  {10, 9, 8}    // Motor 3
+  {7, 2, 3},    // Motor 1
+  {4, 5, 6},    // Motor 2
+  {11, 12, 13}, // Motor 3
+  {10, 9, 8}    // Motor 4
 };
 
 
