@@ -16,14 +16,12 @@ outline-output = driver_pcb-Edge_Cuts.gbr.nc
 
 # milling
 
-mill-diameters = 0.1mm
-mill-infeed = 0.08mm
-zwork = -0.08mm
-#extra-passes = 0
+mill-diameters = 0.5mm
+mill-infeed = 0.04mm
+zwork = -0.04mm
 
 mill-feed = 100mm/min
 mill-speed = 3000rpm
-#voronoi = true
 
 # drilling
 
@@ -40,7 +38,7 @@ cut-feed = 100mm/min
 cut-infeed = 0.2mm
 cut-side = back
 cut-speed = 3000rpm
-cutter-diameter = 2mm
+cutter-diameter = 1.7mm
 zcut = -1.2mm
 bridges = 1.0mm
 bridgesnum = 4
