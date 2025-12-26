@@ -188,7 +188,7 @@ void turn_motors(int max, int min, int dir,int time) {
 }
 
 void setup() {
-  Serial0.begin(9600);
+  Serial.begin(9600);
   for (int m = 0; m < 4; m++) {
     for (int p = 0; p < 3; p++) {
       pinMode(motors[m][p], OUTPUT);
@@ -221,8 +221,10 @@ void loop() {
       int arg3 = getValue(command_raw, ':', 3).toInt();
       int arg4 = getValue(command_raw, ':', 4).toInt();
       Serial.printf("cmd %s, arg1 %d, arg2 %d, arg3 %d, arg4 %d\n", command, arg1, arg2, arg3, arg4);
-      turn_motors(arg1, arg2, arg3, arg4);
+      turn_motors(arg1/5, arg2, arg3, arg4);
     }
   }
+  //Serial.printf("echo\n");
+  //delay(100);
 }
 
