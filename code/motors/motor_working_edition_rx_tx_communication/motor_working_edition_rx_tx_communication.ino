@@ -224,7 +224,7 @@ void loop() {
       turn_motors(arg1/4, arg2, arg3, arg4);
     }
   }
-  Serial.printf("echo\n");
-  delay(100);
+  //Serial.printf("echo\n");
+  //delay(100);
 }
 
