@@ -27,7 +27,8 @@ void setupLedFlash();
 
 void setup() {
   Serial.begin(9600);
-  Serial.setDebugOutput(true);
+  //Serial.begin(115200);
+  //Serial.setDebugOutput(true);
   Serial.println();
 
   camera_config_t config;
@@ -213,19 +214,22 @@ esp_err_t camera_capture(){
         //int bytes = (fb->buf[9312]<<8) + fb->buf[9312+1];
         //Serial.printf("rgb %d %d %d color %s bytes %04X\n", color.r, color.g, color.b, color_s, bytes);
         position_t position = get_goal_position(fb -> buf, yellow);
-        Serial.printf("position %c%d\n", position.dir, position.val);
         
         //return the frame buffer back to be reused
         esp_camera_fb_return(fb);
-
+        Serial.printf("%c:%d\n",position.dir,position.val);
+        //Serial.printf("test \n");
         return ESP_OK;
 }
 
 void loop() {
-  esp_err_t err = camera_capture();
-  if (err != ESP_OK) {
-    Serial.printf("Camera capture failed with error 0x%x", err);
+  if (Serial.available()) {
+    String received = Serial.readStringUntil('\n');
+    received.trim();
+    if (received == "get_pos") {
+      esp_err_t err = camera_capture();
+    }
   }
-  //Serial.printf("touch %d %d %d\n", touchRead(4), touchRead(2), touchRead(14));
-  delay(100);
+  //Serial.printf("test main loop\n");
+  //delay(100);
 }
