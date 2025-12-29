@@ -7,6 +7,9 @@ typedef struct {
 typedef struct {
   char dir;
   int val;
+  int left;
+  int right;
+  int center;
 } position_t;
 
 const int width = 96;
@@ -25,6 +28,7 @@ void setup() {
   Serial.println();
   camSetup();
   pinMode(buttonPin, INPUT_PULLUP);
+
 }
 
 color_t get_color(uint8_t * buf, int offset){
@@ -92,9 +96,13 @@ position_t get_goal_position(color_t goal_color){
   if (left == 0 or right == 0){
     position = zero_position;
   }
+  position.left = left;
+  position.right = right;
+  position.center = center;
   // debug
-  Serial.printf("left %d right %d center %d goal_color %d %d %d ", left, right, center, goal_color.r, goal_color.g, goal_color.b);
-  Serial.printf("position %c%d\n", position.dir, position.val);
+  //Serial.printf("left %d right %d center %d goal_color %d %d %d ", left, right, center, goal_color.r, goal_color.g, goal_color.b);
+  //Serial.printf("position %c%d\n", position.dir, position.val);
+
   return position;
 }
 
@@ -117,7 +125,7 @@ void loop() {
     received.trim();
     if (received == "get_pos") {
       position_t position = get_goal_position(g_goal_color);
-      Serial.printf("%c:%d\n", position.dir, position.val);
+      Serial.printf("%c:%d:%d:%d:%d\n", position.dir, position.val, position.left , position.right, position.center);
     }
   }
   if (buttonPressed()) {
@@ -128,5 +136,5 @@ void loop() {
   //debug
   //position_t position = get_goal_position(g_goal_color);
   //Serial.printf("%c:%d\n", position.dir, position.val);
-  //delay(200);
+  delay(200);
 }
