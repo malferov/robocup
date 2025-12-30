@@ -14,7 +14,8 @@ typedef struct {
 
 const int width = 96;
 const int horizon = 48;
-const int threshold = 5;
+const int threshold_color = 5;
+const int threshold_width = 10;
 const color_t no_color = color_t(0,0,0); //black
 const position_t zero_position = position_t('L', 0);
 const int buttonPin = 13;
@@ -55,7 +56,7 @@ bool is_color(color_t sample, color_t color){
   int diff_b = abs(sample.b-color.b);
   //debug
   //Serial.printf("%d %d %d\n", diff_r, diff_g, diff_b);
-  bool match = (diff_r < threshold && diff_g < threshold && diff_b < threshold);
+  bool match = (diff_r < threshold_color && diff_g < threshold_color && diff_b < threshold_color);
   return match;
 }
 
@@ -89,12 +90,15 @@ position_t get_goal_position(color_t goal_color){
   int left=0;
   int right=0;
   for (int i=0; i<width; i++) {
-    color_t color = get_color(fb -> buf, offset + i*2);
+    color_t color = get_avg_color(fb -> buf, offset + i*2);
     if (left == 0 && is_color(color, goal_color)){
       left = i;
     }
     if (is_color(color, goal_color)){
       right = i;
+    } else if (right - left < threshold_width) {
+      left = 0;
+      right = 0;
     }
   }
   //return the frame buffer back to be reused
