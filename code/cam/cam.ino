@@ -14,7 +14,8 @@ typedef struct {
 
 const int width = 96;
 const int horizon = 48;
-const int threshold = 8;
+const int threshold_color = 5;
+const int threshold_width = 10;
 const color_t no_color = color_t(0,0,0); //black
 const position_t zero_position = position_t('L', 0);
 const int buttonPin = 13;
@@ -40,8 +41,23 @@ color_t get_color(uint8_t * buf, int offset){
   return color_t(r, g, b);
 }
 
+color_t get_avg_color(uint8_t * buf, int offset){
+  // avg of 5 lines above and 5 lines below
+  int five_lines_offset = width * 2 * 5;
+  color_t color_above = get_color(buf, offset - five_lines_offset);
+  color_t color_below = get_color(buf, offset + five_lines_offset);
+  color_t avg_color = color_t((color_above.r + color_below.r)/2, (color_above.g + color_below.g)/2, (color_above.b + color_below.b)/2);
+  return avg_color;
+}
+
 bool is_color(color_t sample, color_t color){
-  return (abs(sample.r-color.r) < threshold && abs(sample.g-color.g) < threshold && abs(sample.b-color.b) < threshold);
+  int diff_r = abs(sample.r-color.r);
+  int diff_g = abs(sample.g-color.g);
+  int diff_b = abs(sample.b-color.b);
+  //debug
+  //Serial.printf("%d %d %d\n", diff_r, diff_g, diff_b);
+  bool match = (diff_r < threshold_color && diff_g < threshold_color && diff_b < threshold_color);
+  return match;
 }
 
 color_t capture_color(){
@@ -53,7 +69,7 @@ color_t capture_color(){
   }
   //color_t yellow = color_t(31, 63, 28);
   int center = width * 2*48 + 2*48; // center pixel (9312)
-  color_t color = get_color(fb -> buf, center);
+  color_t color = get_avg_color(fb -> buf, center);
   //return the frame buffer back to be reused
   esp_camera_fb_return(fb);
 
@@ -74,12 +90,15 @@ position_t get_goal_position(color_t goal_color){
   int left=0;
   int right=0;
   for (int i=0; i<width; i++) {
-    color_t color = get_color(fb -> buf, offset + i*2);
+    color_t color = get_avg_color(fb -> buf, offset + i*2);
     if (left == 0 && is_color(color, goal_color)){
       left = i;
     }
     if (is_color(color, goal_color)){
       right = i;
+    } else if (right - left < threshold_width) {
+      left = 0;
+      right = 0;
     }
   }
   //return the frame buffer back to be reused
@@ -135,6 +154,6 @@ void loop() {
   }
   //debug
   //position_t position = get_goal_position(g_goal_color);
-  //Serial.printf("%c:%d\n", position.dir, position.val);
-  delay(200);
+  //Serial.printf("%c:%d:%d:%d:%d\n", position.dir, position.val, position.left , position.right, position.center);
+  //delay(200);
 }

@@ -39,9 +39,9 @@ void loop() {
   if (Serial2.available()) {
     String command = Serial2.readStringUntil('\n');
     if (getValue(command,':',0) == "L") {
-      Serial.printf("turn_all:%d:0:0:100\n",getValue(command,':',1).toInt()*20);
-    } else if (getValue(command,':',0) == "R") {
       Serial.printf("turn_all:%d:0:1:100\n",getValue(command,':',1).toInt()*20);
+    } else if (getValue(command,':',0) == "R") {
+      Serial.printf("turn_all:%d:0:0:100\n",getValue(command,':',1).toInt()*20);
     }
     int left = getValue(command,':',2).toInt();
     int right = getValue(command,':',3).toInt();
