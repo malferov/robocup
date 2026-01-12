@@ -7,4 +7,5 @@ RoboCup Junior Netherlands team `CoreX`
 - Battery: 12.6V 3000mAh Lithium Ion Battery 157 g
 - Distance sensor: HC-SR04 Ultrasonic Sensor
 - Line detector: TCRT5000 Reflective Infrared Optical Sensor
-- MCU: ESP32-S3 mini
+- IR sensor: Vishay TSSP4038, 38kHz IR Receiver, 950nm ±45°, 25m Range, 2.5V-5.5V
+- MCU: ESP32-C3
