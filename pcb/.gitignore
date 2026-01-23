@@ -1,3 +1,7 @@
 *.svg
 *.nc
+*.drl
+*.gbr
 *.zip
+*.map
+fp-info-cache

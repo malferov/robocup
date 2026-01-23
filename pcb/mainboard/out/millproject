@@ -1,0 +1,45 @@
+# general
+
+metric = true
+metricoutput = true
+nog64 = true
+nom6 = true
+zchange = 2.0mm
+zsafe = 2.0mm
+
+back = mainboard-B_Cu.gbr
+back-output = mainboard-B_Cu.gbr.nc
+drill = mainboard.drl
+drill-output = mainboard.drl.nc
+outline = mainboard-Edge_Cuts.gbr
+outline-output = mainboard-Edge_Cuts.gbr.nc
+
+# milling
+
+mill-diameters = 0.5mm
+mill-infeed = 0.04mm
+zwork = -0.04mm
+
+mill-feed = 100mm/min
+mill-speed = 3000rpm
+
+# drilling
+
+drill-feed = 40mm/min
+drill-side = back
+drill-speed = 3000rpm
+drills-available = 0.8mm
+nog81 = true
+zdrill = -1.4mm
+
+# cutting
+
+cut-feed = 100mm/min
+cut-infeed = 0.2mm
+cut-side = back
+cut-speed = 3000rpm
+cutter-diameter = 1.7mm
+zcut = -1.2mm
+bridges = 1.0mm
+bridgesnum = 4
+zbridges = -0.6mm
