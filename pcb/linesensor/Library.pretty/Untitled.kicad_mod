@@ -1,0 +1,116 @@
+(footprint "Untitled"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(property "Reference" "REF**"
+		(at 0 -0.5 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "2c4e9d36-5684-4465-8fd2-0b4379d6792c")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Value" "Untitled"
+		(at 0 1 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "61e8097e-5df3-4d6e-84d3-36b07c3edc0c")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "d15643d0-efb5-4f8c-82a0-0ee0a546a762")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "ac660be6-1031-4b4d-9762-00cce55ab299")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd)
+	(fp_rect
+		(start 0 0.04)
+		(end 2.42 5.12)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "F.SilkS")
+		(uuid "d1a54b14-a167-4856-8a03-f8fe901e032c")
+	)
+	(fp_text user "TCRT5000"
+		(at 0 0.04 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "a61e265a-90f8-4b27-9200-f381e167f1a3")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
+	(pad "4" smd roundrect
+		(at 0 0.04)
+		(size 1.905 1.27)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.15)
+		(thermal_bridge_angle 45)
+		(uuid "e8fdcad7-de47-49a3-b7de-076e6e4a3df3")
+	)
+	(pad "5" smd roundrect
+		(at 2.42 0.04)
+		(size 1.905 1.27)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.15)
+		(thermal_bridge_angle 45)
+		(uuid "61f09135-eaa5-4d42-89b4-5fcf68ccc179")
+	)
+	(pad "6" smd roundrect
+		(at 2.42 5.12)
+		(size 1.905 1.27)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.15)
+		(thermal_bridge_angle 45)
+		(uuid "7f6c7463-433a-48f4-8f70-2e313af2e924")
+	)
+	(pad "7" smd roundrect
+		(at 0 5.12)
+		(size 1.905 1.27)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.15)
+		(thermal_bridge_angle 45)
+		(uuid "6c072107-b650-478d-b2aa-3348f50ffa80")
+	)
+	(embedded_fonts no)
+)

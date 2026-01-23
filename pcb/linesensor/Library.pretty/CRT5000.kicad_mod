@@ -1,0 +1,143 @@
+(footprint "CRT5000"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(descr "'Piranha' RGB LED, through hole, common anode, 7.62x7.62mm, BGRA pin order, https://cdn-shop.adafruit.com/datasheets/BL-FL7680RGB.pdf")
+	(tags "RGB LED Piranha Super-Flux BetLux")
+	(property "Reference" "REF**"
+		(at 2.54 -2.27 0)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "1532ba7f-49eb-4b89-8422-0039b38ba861")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "CRT5000"
+		(at 2.54 7.35 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "12d60457-e2c4-4680-a544-b739671c84a4")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "49aa8f5e-4f38-4958-ae05-6f638b33079d")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "63192ef9-1111-4491-aa0f-c006618ecd8e")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole)
+	(fp_line
+		(start -4.58207 -4.068885)
+		(end -4.58207 4.051115)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "c8d8c029-24e6-443e-8ac3-dde5585afb3f")
+	)
+	(fp_line
+		(start -4.58207 4.051115)
+		(end 1.52 4.06)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "c41df736-e136-4396-b5b9-061ac9843ac6")
+	)
+	(fp_line
+		(start 1.52 -4.068885)
+		(end -4.58207 -4.068885)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "121456cd-e601-40ec-94d6-b94b8bd25712")
+	)
+	(fp_line
+		(start 1.52 4.06)
+		(end 1.52 -4.06)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "3432ad4e-b4a4-411a-b0a6-d0260b85f099")
+	)
+	(pad "1" thru_hole rect
+		(at -3.06207 -2.548885)
+		(size 2.35 2.35)
+		(drill 1.35)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "249d2d59-c185-4aea-b411-f201a720eac3")
+	)
+	(pad "2" thru_hole circle
+		(at -3.06207 2.531115)
+		(size 2.35 2.35)
+		(drill 1.35)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "bfee237f-7aca-44bc-bf42-a614b4880adf")
+	)
+	(pad "3" thru_hole circle
+		(at 0 2.54)
+		(size 2.35 2.35)
+		(drill 1.35)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "64ea00b6-baef-43dd-bf65-f0e3e4447807")
+	)
+	(pad "4" thru_hole circle
+		(at 0 -2.54)
+		(size 2.35 2.35)
+		(drill 1.35)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "d9712e8e-7091-441a-a8ac-94d4e2058afb")
+	)
+	(embedded_fonts no)
+	(model "${KICAD9_3DMODEL_DIR}/LED_THT.3dshapes/LED_BL-FL7680RGB.step"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)
