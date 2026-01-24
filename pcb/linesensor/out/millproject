@@ -7,26 +7,26 @@ nom6 = true
 zchange = 2.0mm
 zsafe = 2.0mm
 
-back = mainboard-B_Cu.gbr
-back-output = mainboard-B_Cu.nc
-drill = mainboard.drl
-drill-output = mainboard.drl.nc
-outline = mainboard-Edge_Cuts.gbr
-outline-output = mainboard-Edge_Cuts.nc
+front = linesensor-F_Cu.gbr
+front-output = linesensor-F_Cu.nc
+drill = linesensor.drl
+drill-output = linesensor.drl.nc
+outline = linesensor-Edge_Cuts.gbr
+outline-output = linesensor-Edge_Cuts.nc
 
 # milling
 
 mill-diameters = 0.5mm
-mill-infeed = 0.2mm
-zwork = -0.2mm
+mill-infeed = 0.04mm
+zwork = -0.04mm
 
-mill-feed = 150mm/min
+mill-feed = 100mm/min
 mill-speed = 3000rpm
 
 # drilling
 
-drill-feed = 60mm/min
-drill-side = back
+drill-feed = 40mm/min
+drill-side = front
 drill-speed = 3000rpm
 drills-available = 0.8mm
 nog81 = true
@@ -34,9 +34,9 @@ zdrill = -1.4mm
 
 # cutting
 
-cut-feed = 200mm/min
+cut-feed = 100mm/min
 cut-infeed = 0.2mm
-cut-side = back
+cut-side = front
 cut-speed = 3000rpm
 cutter-diameter = 1.7mm
 zcut = -1.2mm
