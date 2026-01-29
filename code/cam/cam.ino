@@ -150,10 +150,10 @@ void loop() {
   if (buttonPressed()) {
     g_goal_color = capture_color();
     //debug
-    //Serial.printf("button pressed; goal color %d %d %d\n", g_goal_color.r, g_goal_color.g, g_goal_color.b);
+    Serial.printf("button pressed; goal color %d %d %d\n", g_goal_color.r, g_goal_color.g, g_goal_color.b);
   }
   //debug
-  //position_t position = get_goal_position(g_goal_color);
-  //Serial.printf("%c:%d:%d:%d:%d\n", position.dir, position.val, position.left , position.right, position.center);
-  //delay(200);
+  position_t position = get_goal_position(g_goal_color);
+  Serial.printf("%c:%d:%d:%d:%d\n", position.dir, position.val, position.left , position.right, position.center);
+  delay(200);
 }
