@@ -9,3 +9,6 @@ RoboCup Junior Netherlands team `CoreX`
 - Line detector: TCRT5000 Reflective Infrared Optical Sensor
 - IR sensor: Vishay TSSP4038, 38kHz IR Receiver, 950nm ±45°, 25m Range, 2.5V-5.5V
 - MCU: ESP32-C3
+
+# Power consumption
+- Mainboard: 170 mA
