@@ -1,4 +1,6 @@
 #include "esp_camera.h"
+#define BUTTON_PIN 47
+#define PRESS_DELAY 500 // ms
 
 typedef struct {
   int r, g, b;
@@ -17,8 +19,8 @@ const int horizon = 48;
 const int threshold_color = 5;
 const int threshold_width = 10;
 const color_t no_color = color_t(0,0,0); //black
-const position_t zero_position = position_t('L', 0);
-const int buttonPin = 13;
+const position_t zero_position = position_t('L',0,0,0,0);
+unsigned long timer = 0;
 
 color_t g_goal_color = no_color;
 
@@ -28,8 +30,21 @@ void setup() {
   Serial.begin(9600);
   Serial.println();
   camSetup();
-  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  timer = millis();
 
+  // debug info
+  /*
+  if (psramFound()) {
+    Serial.println("PSRAM FOUND");
+    Serial.printf("PSRAM size: %d bytes\n", ESP.getPsramSize());
+    Serial.printf("Free PSRAM: %d bytes\n", ESP.getFreePsram());
+  } else {
+    Serial.println("PSRAM NOT FOUND");
+  }
+  sensor_t *s = esp_camera_sensor_get();
+  Serial.printf("Camera PID: %X\n", s->id.PID);
+  */
 }
 
 color_t get_color(uint8_t * buf, int offset){
@@ -125,15 +140,15 @@ position_t get_goal_position(color_t goal_color){
   return position;
 }
 
-bool buttonPressed(){
-  // check if pressed for at least 100 ms
-  bool pressed = true;
-  for (int i=0; i<10; i++) {
-    int state = digitalRead(buttonPin);
-    if (state == HIGH){
-      pressed = false;
+bool buttonPressed() {
+  bool pressed = false;
+  unsigned long current = millis();
+  if (current > timer + PRESS_DELAY) {
+    int state = digitalRead(BUTTON_PIN);
+    if (state == LOW) {
+      pressed = true;
+      timer = current;
     }
-    delay(10);
   }
   return pressed;
 }
@@ -150,10 +165,10 @@ void loop() {
   if (buttonPressed()) {
     g_goal_color = capture_color();
     //debug
-    Serial.printf("button pressed; goal color %d %d %d\n", g_goal_color.r, g_goal_color.g, g_goal_color.b);
+    //Serial.printf("button pressed; goal color %d %d %d\n", g_goal_color.r, g_goal_color.g, g_goal_color.b);
   }
   //debug
-  position_t position = get_goal_position(g_goal_color);
-  Serial.printf("%c:%d:%d:%d:%d\n", position.dir, position.val, position.left , position.right, position.center);
-  delay(200);
+  //position_t position = get_goal_position(g_goal_color);
+  //Serial.printf("%c:%d:%d:%d:%d\n", position.dir, position.val, position.left , position.right, position.center);
+  //delay(200);
 }
