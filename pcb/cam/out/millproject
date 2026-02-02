@@ -4,15 +4,15 @@ metric = true
 metricoutput = true
 nog64 = true
 nom6 = true
-zchange = 5.0mm
 zsafe = 2.0mm
+zchange = 5.0mm
 
-back = mainboard-B_Cu.gbr
-back-output = mainboard-B_Cu.nc
-drill = mainboard.drl
-drill-output = mainboard.drl.nc
-outline = mainboard-Edge_Cuts.gbr
-outline-output = mainboard-Edge_Cuts.nc
+back = cam-B_Cu.gbr
+back-output = cam-B_Cu.nc
+drill = cam.drl
+drill-output = cam.drl.nc
+outline = cam-Edge_Cuts.gbr
+outline-output = cam-Edge_Cuts.nc
 
 # milling
 
@@ -41,5 +41,5 @@ cut-speed = 3000rpm
 cutter-diameter = 1.7mm
 zcut = -1.5mm
 bridges = 1.0mm
-bridgesnum = 4
+bridgesnum = 8
 zbridges = -0.7mm

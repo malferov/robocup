@@ -10,5 +10,10 @@ RoboCup Junior Netherlands team `CoreX`
 - IR sensor: Vishay TSSP4038, 38kHz IR Receiver, 950nm ±45°, 25m Range, 2.5V-5.5V
 - MCU: ESP32-C3
 
-# Power consumption
+# Metrics
+### Power consumption
 - Mainboard: 170 mA
+### Performance
+- Distance sensor: 33 ms
+- Camera capture: 34 ms
+- get_pos: 98 ms
