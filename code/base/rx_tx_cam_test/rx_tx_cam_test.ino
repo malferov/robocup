@@ -215,5 +215,5 @@ void loop() {
   if (mode == MODE_BALL) {
     turn2ball();
   }
-  delay(100);
+  delay(1);
 }

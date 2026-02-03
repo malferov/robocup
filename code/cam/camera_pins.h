@@ -342,7 +342,7 @@
 #define HREF_GPIO_NUM  7
 #define SIOD_GPIO_NUM  4
 #define SIOC_GPIO_NUM  5
-//#define LED_GPIO_NUM   4 ?
+//#define LED_GPIO_NUM   48
 
 #define Y9_GPIO_NUM    16
 #define Y8_GPIO_NUM    17

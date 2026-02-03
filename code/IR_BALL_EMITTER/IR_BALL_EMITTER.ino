@@ -1,4 +1,4 @@
-#define PWM_PIN 13
+#define PWM_PIN 3
 
 void setup() {
   // Set PWM frequency
@@ -13,4 +13,5 @@ void setup() {
 
 void loop() {
   // PWM runs in hardware
+  delay(1);
 }

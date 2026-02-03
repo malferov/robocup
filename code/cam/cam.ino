@@ -1,6 +1,11 @@
 #include "esp_camera.h"
 #define BUTTON_PIN 47
 #define PRESS_DELAY 500 // ms
+#define TRIG_PIN 19
+#define ECHO_PIN 20
+#define ECHO_TIMEOUT 50000 // us
+#define STATUS_LED 2
+#define MOSFET_PIN 38
 
 typedef struct {
   int r, g, b;
@@ -27,11 +32,24 @@ color_t g_goal_color = no_color;
 void camSetup();
 
 void setup() {
-  Serial.begin(9600);
-  Serial.println();
-  camSetup();
+  // button
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   timer = millis();
+  // distance sensor
+  pinMode(ECHO_PIN, INPUT_PULLDOWN);
+  pinMode(TRIG_PIN, OUTPUT);
+  digitalWrite(TRIG_PIN, LOW);
+  pinMode(TRIG_PIN, OUTPUT);
+  // led
+  pinMode(STATUS_LED, OUTPUT);
+  // MOSFET
+  pinMode(MOSFET_PIN, OUTPUT);
+  digitalWrite(MOSFET_PIN, HIGH);
+  // serial
+  Serial.begin(9600);
+  Serial.println();
+  // camera
+  camSetup();
 
   // debug info
   /*
@@ -153,22 +171,48 @@ bool buttonPressed() {
   return pressed;
 }
 
+int getDistance() {
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+  int distance = pulseIn(ECHO_PIN, HIGH, ECHO_TIMEOUT) * 0.1715; //    0.343/2
+  return distance;
+}
+
+void confirm() {
+  digitalWrite(STATUS_LED, HIGH);
+  delay(100);
+  digitalWrite(STATUS_LED, LOW);
+}
+
+void shoot() {
+  digitalWrite(MOSFET_PIN, LOW);
+  delay(200);
+  digitalWrite(MOSFET_PIN, HIGH);
+}
+
 void loop() {
   if (Serial.available()) {
     String received = Serial.readStringUntil('\n');
     received.trim();
     if (received == "get_pos") {
       position_t position = get_goal_position(g_goal_color);
-      Serial.printf("%c:%d:%d:%d:%d\n", position.dir, position.val, position.left , position.right, position.center);
+      int distance = getDistance(); // mm
+      Serial.printf("%c:%d:%d:%d:%d:%d\n", position.dir, position.val, position.left, position.right, position.center, distance);
+    } else if (received == "shoot") {
+      shoot();
+      confirm();
     }
   }
   if (buttonPressed()) {
     g_goal_color = capture_color();
+    confirm();
     //debug
     //Serial.printf("button pressed; goal color %d %d %d\n", g_goal_color.r, g_goal_color.g, g_goal_color.b);
   }
+  delay(1);
+
   //debug
   //position_t position = get_goal_position(g_goal_color);
   //Serial.printf("%c:%d:%d:%d:%d\n", position.dir, position.val, position.left , position.right, position.center);
-  //delay(200);
 }
