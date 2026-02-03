@@ -5,6 +5,7 @@
 #define ECHO_PIN 20
 #define ECHO_TIMEOUT 50000 // us
 #define STATUS_LED 2
+#define MOSFET_PIN 38
 
 typedef struct {
   int r, g, b;
@@ -41,6 +42,9 @@ void setup() {
   pinMode(TRIG_PIN, OUTPUT);
   // led
   pinMode(STATUS_LED, OUTPUT);
+  // MOSFET
+  pinMode(MOSFET_PIN, OUTPUT);
+  digitalWrite(MOSFET_PIN, HIGH);
   // serial
   Serial.begin(9600);
   Serial.println();
@@ -181,6 +185,12 @@ void confirm() {
   digitalWrite(STATUS_LED, LOW);
 }
 
+void shoot() {
+  digitalWrite(MOSFET_PIN, LOW);
+  delay(200);
+  digitalWrite(MOSFET_PIN, HIGH);
+}
+
 void loop() {
   if (Serial.available()) {
     String received = Serial.readStringUntil('\n');
@@ -189,10 +199,9 @@ void loop() {
       position_t position = get_goal_position(g_goal_color);
       int distance = getDistance(); // mm
       Serial.printf("%c:%d:%d:%d:%d:%d\n", position.dir, position.val, position.left, position.right, position.center, distance);
-    } else if (received == "kick") {
-      digitalWrite(STATUS_LED, HIGH);
-      delay(500);
-      digitalWrite(STATUS_LED, LOW);
+    } else if (received == "shoot") {
+      shoot();
+      confirm();
     }
   }
   if (buttonPressed()) {
