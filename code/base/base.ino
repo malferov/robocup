@@ -199,21 +199,42 @@ void turn2ball() {
   if (heading > 180) {
     heading = 360 - heading;
   } 
-  turnAll(direction, heading / SEGMENT_ANGLE);
+  turnAll(direction, heading / 10); // 10 for the test
+}
+
+void turn2goal() {
+  if (goalPosition.deviation == 0) {
+    return;
+  }
+  turnAll(goalPosition.dir, goalPosition.deviation);
 }
 
 void loop() {
+
   if (Serial2.available()) {
     goalPosition = getGoalPosition();
   }
+
   Serial2.write("get_pos\n");
   ballHeading = getBallHeading();
+
   if (buttonPressed(MODE_BUTTON)) {
     changeMode();
   }
+  if (buttonPressed(START_BUTTON)) {
+    display.setCursor(0, 20);
+    display.print("shoot");
+    display.display();
+    delay(200);
+    Serial2.write("shoot\n");
+  }
   refreshDisplay();
+
   if (mode == MODE_BALL) {
     turn2ball();
+  } else if (mode == MODE_GOAL) {
+    turn2goal();
   }
+
   delay(1);
 }
