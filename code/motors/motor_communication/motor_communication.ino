@@ -15,11 +15,14 @@
 // pin 1 = DIR2
 // pin 2 = PWM
 
+#define RAMP_MAX 255
+#define MOTOR_TIME 5000 // ms
+
 const int motors[4][3] = {
-  {7, 2, 3},    // Motor 1
-  {5, 4, 6},    // Motor 2
-  {11, 12, 13}, // Motor 3
-  {9, 10, 8}    // Motor 4
+  {10, 9, 8},    // Motor 1
+  {11, 12, 13},  // Motor 2
+  {4, 5, 6},     // Motor 3
+  {7, 2, 3}      // Motor 4
 };
 
 String getValue(String data, char separator, int index)
@@ -50,8 +53,16 @@ void set_dir_motor(int buul,int pin_1, int pin_2) {
   }
 }
 
-void motor_jog_one(int max,int min, int p_pin, int dir , int d_pin_1, int d_pin_2, int time) 
-{
+/*void motor_jog_one(int max, int min, int p_pin, int dir, int d_pin_1, int d_pin_2, int time) {
+
+  // limit max, min & time
+  if (max > RAMP_MAX) { max = RAMP_MAX; }
+  if (max < 0) { max = 0; }
+  if (min > max) { min = max; }
+  if (min < 0) { min = 0; }
+  if (time > MOTOR_TIME) { time = MOTOR_TIME; }
+  if (time < 0) { time = 0; }
+
   if (dir == 1) {
     digitalWrite(d_pin_1, 1);
     digitalWrite(d_pin_2, 0);
@@ -68,8 +79,18 @@ void motor_jog_one(int max,int min, int p_pin, int dir , int d_pin_1, int d_pin_
     analogWrite(p_pin, duty);
     delay(1);
   }
-}
-void motor_jog_double(int max, int min, int dir ,int time) {
+}*/
+
+void dir_move_two(int max, int min, int dir ,int time) {
+
+  // limit max, min & time
+  if (max > RAMP_MAX) { max = RAMP_MAX; }
+  if (max < 0) { max = 0; }
+  if (min > max) { min = max; }
+  if (min < 0) { min = 0; }
+  if (time > MOTOR_TIME) { time = MOTOR_TIME; }
+  if (time < 0) { time = 0; }
+
   int m1 = 0;
   int m2 = 0;
   if (dir == 45) {
@@ -105,7 +126,16 @@ void motor_jog_double(int max, int min, int dir ,int time) {
     delay(1);
   }
 }
-void all_motor_jog(int max, int min, int dir,int time) {
+
+void dir_move_all(int max, int min, int dir,int time) {
+
+  // limit max, min & time
+  if (max > RAMP_MAX) { max = RAMP_MAX; }
+  if (max < 0) { max = 0; }
+  if (min > max) { min = max; }
+  if (min < 0) { min = 0; }
+  if (time > MOTOR_TIME) { time = MOTOR_TIME; }
+  if (time < 0) { time = 0; }
 
   // ---- SET DIRECTION ----
   if (dir == 0) {                 // FORWARD
@@ -157,19 +187,28 @@ void all_motor_jog(int max, int min, int dir,int time) {
   }
 }
 
-void turn_motors(int max, int min, int dir,int time) {
+void turn_all(int max, int min, int dir,int time) {
+
+  // limit max, min & time
+  if (max > RAMP_MAX) { max = RAMP_MAX; }
+  if (max < 0) { max = 0; }
+  if (min > max) { min = max; }
+  if (min < 0) { min = 0; }
+  if (time > MOTOR_TIME) { time = MOTOR_TIME; }
+  if (time < 0) { time = 0; }
+
   // 1 = left
   // 0 = right
   if (dir == 1) {
     set_dir_motor(0, motors[0][0], motors[0][1]);
-    set_dir_motor(0, motors[1][0], motors[1][1]);
+    set_dir_motor(1, motors[1][0], motors[1][1]);
     set_dir_motor(1, motors[2][0], motors[2][1]);
-    set_dir_motor(1, motors[3][0], motors[3][1]);
+    set_dir_motor(0, motors[3][0], motors[3][1]);
   } else if (dir ==  0) {
     set_dir_motor(1, motors[0][0], motors[0][1]);
-    set_dir_motor(1, motors[1][0], motors[1][1]);
+    set_dir_motor(0, motors[1][0], motors[1][1]);
     set_dir_motor(0, motors[2][0], motors[2][1]);
-    set_dir_motor(0, motors[3][0], motors[3][1]);
+    set_dir_motor(1, motors[3][0], motors[3][1]);
   }
   for (int duty = min; duty <= max; duty++) {
     for (int m = 0; m < 4; m++) {
@@ -196,7 +235,6 @@ void setup() {
   }
 }
 
-
 void loop() {
   if (Serial.available()) {
     String command_raw = Serial.readStringUntil('\n');
@@ -207,24 +245,23 @@ void loop() {
       int arg3 = getValue(command_raw, ':', 3).toInt();
       int arg4 = getValue(command_raw, ':', 4).toInt();
       Serial.printf("cmd %s, arg1 %d, arg2 %d, arg3 %d, arg4 %d\n", command, arg1, arg2, arg3, arg4);
-      all_motor_jog(arg1, arg2, arg3, arg4);
+      dir_move_all(arg1, arg2, arg3, arg4);
     } else if (command == "dir_move_two") {
       int arg1 = getValue(command_raw, ':', 1).toInt();
       int arg2 = getValue(command_raw, ':', 2).toInt();
       int arg3 = getValue(command_raw, ':', 3).toInt();
       int arg4 = getValue(command_raw, ':', 4).toInt();
       Serial.printf("cmd %s, arg1 %d, arg2 %d, arg3 %d, arg4 %d\n", command, arg1, arg2, arg3, arg4);
-      motor_jog_double(arg1, arg2, arg3, arg4);
+      dir_move_two(arg1, arg2, arg3, arg4);
     } else if (command == "turn_all") {
       int arg1 = getValue(command_raw, ':', 1).toInt();
       int arg2 = getValue(command_raw, ':', 2).toInt();
       int arg3 = getValue(command_raw, ':', 3).toInt();
       int arg4 = getValue(command_raw, ':', 4).toInt();
       Serial.printf("cmd %s, arg1 %d, arg2 %d, arg3 %d, arg4 %d\n", command, arg1, arg2, arg3, arg4);
-      turn_motors(arg1/4, arg2, arg3, arg4);
+      turn_all(arg1, arg2, arg3, arg4);
     }
   }
-  //Serial.printf("echo\n");
-  //delay(100);
+  delay(1);
 }
 
