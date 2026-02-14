@@ -106,12 +106,6 @@ void setup() {
       angs[i] = angs[i] - 360;
     }
   }
-  // debug
-  /*Serial.println();
-  Serial.println("CoreX bot1");
-  for (int i = 0; i < 15; i++) {
-    Serial.printf("%02d %03d\n", i, angs[i]);
-  }*/
 }
 
 int getIR(int channel) {
@@ -122,19 +116,10 @@ int getIR(int channel) {
   digitalWrite(MUX_S0, channel & 0x1);
   // read value
   int val = analogRead(MUX_SIG);
-  //return val;
   // invert
   val = ANALOG_MAX - val;
   // normalization
   //val = (ANALOG_MAX - val) / ANALOG_MAX * 100;
-
-  // calculate average
-  /*int val = 0;
-  for (int i = 0; i < 5; i++) {
-    val = val + (ANALOG_MAX - analogRead(MUX_SIG)) / ANALOG_MAX;
-    delay(1);
-  }*/
-
   // noise
   // ANALOG_MAX * 0.01 = 40
   if (val >= 40) {
@@ -144,84 +129,26 @@ int getIR(int channel) {
 }
 
 void calcBallHeading() {
-  // unknown position
-  //int channel = -1;
-  //int min = ANALOG_MAX;
+
   int angle = ballHeading[1];
   int irs[15];
   int sum = 0;
   int cnt = 0;
+  // get current angle
   for (int i = 0; i < 15; i++) {
     irs[i] = getIR(i);
     if (irs[i] == 1) {
       cnt++;
       sum = sum + angs[i];
     }
-    /*if (ir < min) {
-      min = ir;
-      channel = i;
-    }*/
   }
   if (cnt > 0) {
     angle = sum / cnt;
   }
-  // get current angle
-  /*int angle;
-  if (channel == -1 ||          // can't detect
-      min > 0.5 * ANALOG_MAX) {  // filter noise
-    angle = ballHeading[1];
-  } else {
-    angle = 8 * SEGMENT_ANGLE - 90;           // initial offset
-    angle = angle + SEGMENT_ANGLE * channel;  // add channel position
-    if (angle > 360) {
-      angle = angle - 360;            // whole round offset
-    } 
-  }*/
   // calculate average
   ballHeading[0] = (angle + ballHeading[1]) / 2;
   // remember last
   ballHeading[1] = angle;
-}
-
-void scanHeading() {
-  int irs[15];
-  /*int sum_a = 0;
-  int cnt_a = 0;
-  for (int j = 0; j < 5; j++) {*/
-  for (int i = 0; i < 15; i++) {
-    irs[i] = getIR(i);
-    //irs[i] = 0;
-  }
-  //irs[4] = 1;
-
-  // calculate angle
-  int sum = 0;
-  int cnt = 0;
-  int angle = -1;
-  for (int i = 0; i < 15; i++) {
-    if (irs[i] == 1) {
-      cnt++;
-      sum = sum + angs[i];
-    }
-  }
-  if (cnt > 0) {
-    angle = sum / cnt;
-    //cnt_a++;
-    //sum_a = sum_a + angle;
-  }
-  /*}
-  if (cnt_a > 0) {
-    Serial.println(sum_a / cnt_a);
-  }*/
-
-  // set balHeading
-  ballHeading[0] = angle;
-
-  // print all
-  /*for (int i = 0; i < 14; i++) {
-    Serial.printf("IR%d:%d,", i, irs[i]);
-  }
-  Serial.printf("IR%d:%d\n", 14, irs[14]);*/
 }
 
 CAMT getCAM() {
@@ -293,7 +220,7 @@ void changeMode() {
 }
 
 void turnAll(char dir, int deviation) {
-  int speed = 10;
+  int speed = 5;
   speed = deviation * speed;
   if (speed > 80) {
     speed = 80;
@@ -325,9 +252,9 @@ void turn2goal() {
 void move2ball(int distance) {
   // dir_move_all:max:min:direction:duration
   // max, min: 0..255
-  int max = distance / 2;
-  if (max > 150) {
-    max = 150;
+  int max = distance / 5;
+  if (max > 80) {
+    max = 80;
   }
   const int direction = 0; // [0, 90, 180, 270] degrees
   const int duration = 3;  // ms
@@ -381,8 +308,5 @@ void loop() {
     mode = MODE_ZERO;
   }
 
-  // debug
-  //scanHeading();
-
-  delay(1000);
+  delay(500);
 }
