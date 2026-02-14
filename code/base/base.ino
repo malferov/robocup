@@ -26,6 +26,8 @@
 #define START_BUTTON 23
 #define PRESS_DELAY 500  // ms
 
+#define BALL_CLOSE 100 // mm
+
 typedef struct {
   char dir;
   int deviation;
@@ -34,13 +36,21 @@ typedef struct {
   int center;
 } goalPositionT;
 
-goalPositionT zeroPosition = goalPositionT('L',0,0,0,0);
-goalPositionT goalPosition = zeroPosition;
-int ballHeading = 0;
+typedef struct {
+  goalPositionT goalPosition;
+  int distance;
+} CAMT;
 
-#define MODE_GOAL 0
+goalPositionT zeroPosition = goalPositionT('L',0,0,0,0);
+CAMT cam = CAMT(zeroPosition, -1);
+int ballHeading[2] = {0, 0};   // average & last
+int angs[15];         // sensors angles
+
+#define MODE_ZERO 0
 #define MODE_BALL 1
-int mode = MODE_GOAL;
+#define MODE_DIST 2
+#define MODE_GOAL 3
+int mode = MODE_BALL;
 unsigned long timer = 0;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -64,7 +74,9 @@ void setup() {
   Wire.begin(SDA_PIN, SCL_PIN);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
-  display.setTextSize(2);     // Larger text
+  // Size 1: 6x8 pixel area
+  // Size 2: 12x16 pixels
+  display.setTextSize(2);
   display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
   display.setCursor(0, 20);  // Move text to new origin
   display.print("CoreX bot1");
@@ -82,46 +94,137 @@ void setup() {
   pinMode(MODE_BUTTON, INPUT_PULLUP);  // buttons
   pinMode(START_BUTTON, INPUT_PULLUP);
   timer = millis();
+
+  // zero sensor angle
+  angs[0] = 90 + SEGMENT_ANGLE/2;
+  // add 180 correction
+  angs[0] = angs[0] + 180;
+  // sensors angles
+  for (int i = 1; i < 15; i++) {
+    angs[i] = angs[i-1] + SEGMENT_ANGLE;
+    if (angs[i] >= 360) {
+      angs[i] = angs[i] - 360;
+    }
+  }
+  // debug
+  /*Serial.println();
+  Serial.println("CoreX bot1");
+  for (int i = 0; i < 15; i++) {
+    Serial.printf("%02d %03d\n", i, angs[i]);
+  }*/
 }
 
 int getIR(int channel) {
-  digitalWrite(MUX_S3, (channel >> 3) & 0x1);   // select channel
+  // select channel
+  digitalWrite(MUX_S3, (channel >> 3) & 0x1);
   digitalWrite(MUX_S2, (channel >> 2) & 0x1);
   digitalWrite(MUX_S1, (channel >> 1) & 0x1);
   digitalWrite(MUX_S0, channel & 0x1);
+  // read value
   int val = analogRead(MUX_SIG);
-  //float valf = (ANALOG_MAX - val) / ANALOG_MAX * 100;   // normalization
-  return val;
+  //return val;
+  // invert
+  val = ANALOG_MAX - val;
+  // normalization
+  //val = (ANALOG_MAX - val) / ANALOG_MAX * 100;
+
+  // calculate average
+  /*int val = 0;
+  for (int i = 0; i < 5; i++) {
+    val = val + (ANALOG_MAX - analogRead(MUX_SIG)) / ANALOG_MAX;
+    delay(1);
+  }*/
+
+  // noise
+  // ANALOG_MAX * 0.01 = 40
+  if (val >= 40) {
+    return 1;
+  }
+  return 0;
 }
 
-int getBallHeading() {
-  int channel = -1;   // unknown position
-  int min = ANALOG_MAX;
+void calcBallHeading() {
+  // unknown position
+  //int channel = -1;
+  //int min = ANALOG_MAX;
+  int angle = ballHeading[1];
+  int irs[15];
+  int sum = 0;
+  int cnt = 0;
   for (int i = 0; i < 15; i++) {
-    int ir = getIR(i);
-    if (ir < min) {
+    irs[i] = getIR(i);
+    if (irs[i] == 1) {
+      cnt++;
+      sum = sum + angs[i];
+    }
+    /*if (ir < min) {
       min = ir;
       channel = i;
-    }
+    }*/
   }
-
-  if (channel == -1) {
-    return -1;   // can't detect
+  if (cnt > 0) {
+    angle = sum / cnt;
   }
-
-  if (min > 0.5 * ANALOG_MAX) {
-    return -1;   // filter noise
-  }
-
-  int angle = 8 * SEGMENT_ANGLE - 90;           // initial offset
-  angle = angle + SEGMENT_ANGLE * channel;  // add channel position
-  if (angle > 360) {
-    angle = angle - 360;            // whole round offset
-  } 
-  return angle;
+  // get current angle
+  /*int angle;
+  if (channel == -1 ||          // can't detect
+      min > 0.5 * ANALOG_MAX) {  // filter noise
+    angle = ballHeading[1];
+  } else {
+    angle = 8 * SEGMENT_ANGLE - 90;           // initial offset
+    angle = angle + SEGMENT_ANGLE * channel;  // add channel position
+    if (angle > 360) {
+      angle = angle - 360;            // whole round offset
+    } 
+  }*/
+  // calculate average
+  ballHeading[0] = (angle + ballHeading[1]) / 2;
+  // remember last
+  ballHeading[1] = angle;
 }
 
-goalPositionT getGoalPosition() {
+void scanHeading() {
+  int irs[15];
+  /*int sum_a = 0;
+  int cnt_a = 0;
+  for (int j = 0; j < 5; j++) {*/
+  for (int i = 0; i < 15; i++) {
+    irs[i] = getIR(i);
+    //irs[i] = 0;
+  }
+  //irs[4] = 1;
+
+  // calculate angle
+  int sum = 0;
+  int cnt = 0;
+  int angle = -1;
+  for (int i = 0; i < 15; i++) {
+    if (irs[i] == 1) {
+      cnt++;
+      sum = sum + angs[i];
+    }
+  }
+  if (cnt > 0) {
+    angle = sum / cnt;
+    //cnt_a++;
+    //sum_a = sum_a + angle;
+  }
+  /*}
+  if (cnt_a > 0) {
+    Serial.println(sum_a / cnt_a);
+  }*/
+
+  // set balHeading
+  ballHeading[0] = angle;
+
+  // print all
+  /*for (int i = 0; i < 14; i++) {
+    Serial.printf("IR%d:%d,", i, irs[i]);
+  }
+  Serial.printf("IR%d:%d\n", 14, irs[14]);*/
+}
+
+CAMT getCAM() {
   String command = Serial2.readStringUntil('\n');
   if (command[0] == 'L' || command[0] == 'R') {
     char dir = getValue(command,':',0)[0];
@@ -129,38 +232,40 @@ goalPositionT getGoalPosition() {
     int left = getValue(command,':',2).toInt();
     int right = getValue(command,':',3).toInt();
     int center = getValue(command,':',4).toInt();
-    return goalPositionT(dir, deviation, left, right, center);
+    int distance = getValue(command,':',5).toInt();
+    return CAMT(goalPositionT(dir, deviation, left, right, center), distance);
   } else {
-    return zeroPosition;
-  }
-}
-
-void turnAll(char dir, int deviation) {
-  int speed = 20;
-  if (dir == 'L') {
-    Serial.printf("turn_all:%d:0:1:100\n", deviation * speed);
-  } else if (dir == 'R') {
-    Serial.printf("turn_all:%d:0:0:100\n", deviation * speed);
+    return CAMT(zeroPosition, -1);
   }
 }
 
 void refreshDisplay() {
-  int difference = abs(goalPosition.left - goalPosition.right);
+  int difference = abs(cam.goalPosition.left - cam.goalPosition.right);
   int x = (SCREEN_WIDTH - difference) / 2;
   int y = (SCREEN_HEIGHT - 30) / 2;
 
   display.clearDisplay();
+  // camera
   display.drawRect(x, y, difference, 30, SSD1306_WHITE);
   y = (SCREEN_HEIGHT - 50) / 2;
-  display.fillRect(goalPosition.center, y, 10, 50, SSD1306_WHITE);
+  display.fillRect(cam.goalPosition.center, y, 10, 50, SSD1306_WHITE);
+  // ball heading
   display.setCursor(0, 0);
-  display.print(ballHeading);
-  display.setCursor(SCREEN_WIDTH - 12, 0); // 12 width of one char
-  String strmod = "G";
+  display.print(ballHeading[0]);
+  // mode
+  display.setCursor(SCREEN_WIDTH - 12, 0);
+  String strmod = "Z";
   if (mode == MODE_BALL) {
     strmod = "B";
+  } else if (mode == MODE_DIST) {
+    strmod = "D";
+  } else if (mode == MODE_GOAL) {
+    strmod = "G";
   }
   display.print(strmod);
+  // distance
+  display.setCursor(SCREEN_WIDTH - 12*3, SCREEN_HEIGHT - 16); // size 2: 12x16
+  display.printf("%03d", cam.distance);
   display.display();
 }
 
@@ -187,54 +292,97 @@ void changeMode() {
   }
 }
 
-void turn2ball() {
-  if (ballHeading == -1) {
-    return;
+void turnAll(char dir, int deviation) {
+  int speed = 10;
+  speed = deviation * speed;
+  if (speed > 80) {
+    speed = 80;
   }
+  const int duration = 3; // ms
+  if (dir == 'L') {
+    Serial.printf("turn_all:%d:0:1:%d\n", speed, duration);
+  } else if (dir == 'R') {
+    Serial.printf("turn_all:%d:0:0:%d\n", speed, duration);
+  }
+}
+
+void turn2ball() {
   char direction = 'L';
-  if (ballHeading < 180) {
+  if (ballHeading[0] > 180) {
     direction = 'R';
   }
-  int heading = ballHeading;
-  if (heading > 180) {
-    heading = 360 - heading;
-  } 
-  turnAll(direction, heading / 10); // 10 for the test
+  int deviation = abs(180 - ballHeading[0]);  // degrees
+  turnAll(direction, deviation);
 }
 
 void turn2goal() {
-  if (goalPosition.deviation == 0) {
+  if (cam.goalPosition.deviation == 0) {
     return;
   }
-  turnAll(goalPosition.dir, goalPosition.deviation);
+  turnAll(cam.goalPosition.dir, cam.goalPosition.deviation * 10 ); // cam deviation to degrees
+}
+
+void move2ball(int distance) {
+  // dir_move_all:max:min:direction:duration
+  // max, min: 0..255
+  int max = distance / 2;
+  if (max > 150) {
+    max = 150;
+  }
+  const int direction = 0; // [0, 90, 180, 270] degrees
+  const int duration = 3;  // ms
+  Serial.printf("dir_move_all:%d:0:%d:%d\n", max, direction, duration);
+}
+
+void shoot(){
+  display.setCursor(0, 20);
+  display.print("shoot");
+  display.display();
+  Serial2.write("shoot\n");
+  delay(200);
 }
 
 void loop() {
 
   if (Serial2.available()) {
-    goalPosition = getGoalPosition();
+    cam = getCAM();
   }
-
   Serial2.write("get_pos\n");
-  ballHeading = getBallHeading();
+
+  calcBallHeading();
 
   if (buttonPressed(MODE_BUTTON)) {
     changeMode();
   }
   if (buttonPressed(START_BUTTON)) {
-    display.setCursor(0, 20);
-    display.print("shoot");
-    display.display();
-    delay(200);
-    Serial2.write("shoot\n");
+    shoot();
   }
+
   refreshDisplay();
 
+  // actions
   if (mode == MODE_BALL) {
-    turn2ball();
+    if (abs(ballHeading[0] - 180) > 5) {
+      turn2ball();
+    } else {
+      mode = MODE_DIST;
+    }
+  } else if (mode == MODE_DIST) {
+    if (cam.distance > BALL_CLOSE) {
+      move2ball(cam.distance);
+    } else {
+      if (cam.distance > 0) {
+        mode = MODE_GOAL;
+      }
+    }
   } else if (mode == MODE_GOAL) {
-    turn2goal();
+    //turn2goal();
+    shoot();
+    mode = MODE_ZERO;
   }
 
-  delay(1);
+  // debug
+  //scanHeading();
+
+  delay(1000);
 }
