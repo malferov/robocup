@@ -15,11 +15,19 @@
 // pin 1 = DIR2
 // pin 2 = PWM
 
-const int motors[4][3] = {
+/*const int motors[4][3] = {
   {7, 2, 3},    // Motor 1
   {4, 5, 6},    // Motor 2
   {11, 12, 13}, // Motor 3
   {10, 9, 8}    // Motor 4
+};*/
+
+// driverx2: robox2
+const int motors[4][3] = {
+  {12, 13, 11}, // Motor 1A
+  {8, 9, 10},    // Motor 1B
+  {2, 3, 1},    // Motor 2A
+  {4, 5, 6}    // Motor 2B
 };
 
 
