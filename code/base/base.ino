@@ -46,11 +46,10 @@ CAMT cam = CAMT(zeroPosition, -1);
 int ballHeading[2] = {0, 0};   // average & last
 int angs[15];         // sensors angles
 
-#define MODE_ZERO 0
-#define MODE_BALL 1
-#define MODE_DIST 2
-#define MODE_GOAL 3
-int mode = MODE_BALL;
+String Modes[] = {"IDLE","BALL_SEARCH","DISTANCE_READ","GOAL_SEARCH","BALL_CHASE","IR_READ"};
+
+int mode_num = 0;
+String mode = Modes[0];
 unsigned long timer = 0;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -167,32 +166,33 @@ CAMT getCAM() {
 }
 
 void refreshDisplay() {
-  int difference = abs(cam.goalPosition.left - cam.goalPosition.right);
-  int x = (SCREEN_WIDTH - difference) / 2;
-  int y = (SCREEN_HEIGHT - 30) / 2;
+  display.clearDisplay(); //clear display
+  // display the data corresponding to the mode
+  if (mode == "BALL_SEARCH") {
+    // ball heading
+    display.setCursor(0, 0);
+    display.setTextSize(1);
+    display.print(ballHeading[0]);
+  } else if (mode == "DISTANCE_READ") {
+    // distance
+    display.setCursor(SCREEN_WIDTH - 12*3, SCREEN_HEIGHT - 16); // size 2: 12x16
+    display.printf("%03d", cam.distance);
+  } else if (mode == "GOAL_SEARCH") {
+    // camera
+    int difference = abs(cam.goalPosition.left - cam.goalPosition.right);
+    display.drawRect((SCREEN_WIDTH - difference) / 2, (SCREEN_HEIGHT - 30) / 2, difference, 30, SSD1306_WHITE);
+    display.fillRect(cam.goalPosition.center, (SCREEN_HEIGHT - 50) / 2, 10, 50, SSD1306_WHITE);
+  } else if (mode == "BALL_CHASE") {
 
-  display.clearDisplay();
-  // camera
-  display.drawRect(x, y, difference, 30, SSD1306_WHITE);
-  y = (SCREEN_HEIGHT - 50) / 2;
-  display.fillRect(cam.goalPosition.center, y, 10, 50, SSD1306_WHITE);
-  // ball heading
-  display.setCursor(0, 0);
-  display.print(ballHeading[0]);
-  // mode
-  display.setCursor(SCREEN_WIDTH - 12, 0);
-  String strmod = "Z";
-  if (mode == MODE_BALL) {
-    strmod = "B";
-  } else if (mode == MODE_DIST) {
-    strmod = "D";
-  } else if (mode == MODE_GOAL) {
-    strmod = "G";
+  } else if (mode == "IR_READ") {
+    display.setCursor(0, 0);
+    display.setTextSize(1);
+    display.print(ballHeading[0]);
   }
-  display.print(strmod);
-  // distance
-  display.setCursor(SCREEN_WIDTH - 12*3, SCREEN_HEIGHT - 16); // size 2: 12x16
-  display.printf("%03d", cam.distance);
+  // display the current mode
+  display.setCursor(0, 20);
+  display.setTextSize(1);
+  display.print(mode);
   display.display();
 }
 
@@ -212,18 +212,13 @@ bool buttonPressed(int button) {
 }
 
 void changeMode() {
-  if (mode == MODE_GOAL) {
-    mode = MODE_BALL;
-  } else {
-    mode = MODE_GOAL;
-  }
+  mode = Modes[mode_num + 1];
+  mode_num += 1;
 }
 
-void turnAll(char dir, int deviation) {
-  int speed = 5;
-  speed = deviation * speed;
-  if (speed > 80) {
-    speed = 80;
+void turnAll(char dir, int speed) {
+  if (speed > 255) {
+    speed = 255;
   }
   const int duration = 3; // ms
   if (dir == 'L') {
@@ -239,7 +234,7 @@ void turn2ball() {
     direction = 'R';
   }
   int deviation = abs(180 - ballHeading[0]);  // degrees
-  turnAll(direction, deviation);
+  turnAll(direction,30);
 }
 
 void turn2goal() {
@@ -252,13 +247,15 @@ void turn2goal() {
 void move2ball(int distance) {
   // dir_move_all:max:min:direction:duration
   // max, min: 0..255
-  int max = distance / 5;
-  if (max > 80) {
-    max = 80;
+  int speed = 0;
+  if (distance <= 100) {
+    speed = 20;
+  } else {
+    speed = 40;
   }
   const int direction = 0; // [0, 90, 180, 270] degrees
   const int duration = 3;  // ms
-  Serial.printf("dir_move_all:%d:0:%d:%d\n", max, direction, duration);
+  Serial.printf("dir_move_all:%d:0:%d:%d\n", speed, direction, duration);
 }
 
 void shoot(){
@@ -288,25 +285,20 @@ void loop() {
   refreshDisplay();
 
   // actions
-  if (mode == MODE_BALL) {
+  if (mode == "BALL_SEARCH") {
     if (abs(ballHeading[0] - 180) > 5) {
       turn2ball();
-    } else {
-      mode = MODE_DIST;
     }
-  } else if (mode == MODE_DIST) {
-    if (cam.distance > BALL_CLOSE) {
+  } else if (mode == "DISTANCE_READ") {
+    if (cam.distance > 35) {
       move2ball(cam.distance);
     } else {
-      if (cam.distance > 0) {
-        mode = MODE_GOAL;
-      }
+      shoot();
     }
-  } else if (mode == MODE_GOAL) {
-    //turn2goal();
-    shoot();
-    mode = MODE_ZERO;
+  } else if (mode == "GOAL_SEARCH") {
+    // //turn2goal();
+    // shoot();
+    // mode = "IDLE";
   }
-
-  delay(500);
+  delay(50);
 }
