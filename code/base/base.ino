@@ -180,7 +180,6 @@ bool buttonPressed(int button) {
   return pressed;
 }
 
-<<<<<<< HEAD
 void changeMode(int m = -1) {
   if (m == -1) {
     mode_num += 1;
@@ -194,11 +193,9 @@ void changeMode(int m = -1) {
 }
 
 void turnAll(char dir, int deviation) {
-
   const int min_deviation = 1;         // degrees
   const int max_turn_speed = 50;       // cycles
-  const int duration = 8 * deviation; // ms
-
+  const int duration = 8 * deviation; // 5 ms per 1 degree
   int speed = 1 * deviation;
   if (speed > max_turn_speed) {
     speed = max_turn_speed;
