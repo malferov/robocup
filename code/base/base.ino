@@ -24,11 +24,14 @@
 
 #define MODE_BUTTON 19
 #define START_BUTTON 23
-#define PRESS_DELAY 500  // ms
+#define PRESS_DELAY 500   // ms
+#define SHOOT_DELAY 1000  // ms
 
-#define BALL_CLOSE 100 // mm
+#define BALL_CLOSE 20 // mm
 
 #define ANG_CORREC -15 //degrees
+
+#define AC_DEV 5 //acceptable deviation angle
 
 typedef struct {
   char dir;
@@ -44,16 +47,17 @@ typedef struct {
 } CAMT;
 
 goalPositionT zeroPosition = goalPositionT('L',0,0,0,0);
-CAMT cam = CAMT(zeroPosition, -1);
-int ballHeading[2] = {0, 0};   // average & last
-int angs[15];         // sensors angles
+CAMT cam = CAMT(zeroPosition, 0);
+int ballHeading = 180;  // ahead by default
+int angs[15];           // sensors angles
 
-String Modes[] = {"IDLE","BALL_SEARCH","DISTANCE_READ","GOAL_SEARCH","BALL_CHASE","IR_READ"};
-int Mode_len = 6;
-
+String Modes[] = {"IDLE","BALL_SEARCH","BALL_CHASE","DISTANCE_READ","GOAL_SEARCH","IR_READ"};
+int mode_len = 6;
 int mode_num = 0;
-String mode = Modes[0];
-unsigned long timer = 0;
+String mode = Modes[mode_num];
+unsigned long button_timer;
+unsigned long move_timer;
+unsigned long shoot_timer;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
@@ -94,7 +98,7 @@ int getIR(int channel) {
 
 void calcBallHeading() {
 
-  int angle = ballHeading[1];
+  int angle = ballHeading;
   int irs[15];
   int sum = 0;
   int cnt = 0;
@@ -109,15 +113,14 @@ void calcBallHeading() {
   if (cnt > 0) {
     angle = sum / cnt;
     // add correction
-    angle += ANG_CORREC;
+    //angle += ANG_CORREC;
   }
   // calculate average
-  ballHeading[0] = (angle + ballHeading[1]) / 2;
-  // remember last
-  ballHeading[1] = angle;
+  // 10/90
+  ballHeading = 0.1 * angle + 0.9 * ballHeading;
 }
 
-CAMT getCAM() {
+void getCAM() {
   String command = Serial2.readStringUntil('\n');
   if (command[0] == 'L' || command[0] == 'R') {
     char dir = getValue(command,':',0)[0];
@@ -125,10 +128,10 @@ CAMT getCAM() {
     int left = getValue(command,':',2).toInt();
     int right = getValue(command,':',3).toInt();
     int center = getValue(command,':',4).toInt();
+    cam.goalPosition = goalPositionT(dir, deviation, left, right, center);
     int distance = getValue(command,':',5).toInt();
-    return CAMT(goalPositionT(dir, deviation, left, right, center), distance);
-  } else {
-    return CAMT(zeroPosition, -1);
+    // calculate average 10/90
+    cam.distance = 0.1 * distance + 0.9 * cam.distance;
   }
 }
 
@@ -139,7 +142,7 @@ void refreshDisplay() {
     // ball heading
     display.setCursor(0, 20);
     display.setTextSize(1);
-    display.print(ballHeading[0]);
+    display.print(ballHeading);
   } else if (mode == "DISTANCE_READ") {
     // distance
     display.setCursor(0, 20); // size 2: 12x16
@@ -154,14 +157,12 @@ void refreshDisplay() {
   } else if (mode == "IR_READ") {
     display.setCursor(0, 20);
     display.setTextSize(1);
-    display.printf("ballHeading[0]:%d",ballHeading[0]);
-    display.setCursor(0, 40);
-    display.printf("ballHeading[1]:%d",ballHeading[1]);
+    display.printf("ballHeading:%d",ballHeading);
   }
   // display the current mode
   display.setCursor(0, 0);
   display.setTextSize(1);
-  display.printf("mode:%s id:%d",mode,mode_num);
+  display.printf("mode:%s",mode);
   display.display();
 }
 
@@ -169,82 +170,96 @@ bool buttonPressed(int button) {
   bool pressed = false;
   unsigned long current = millis();
   // last press at least PRESS_DELAY ms ago
-  if (current > timer + PRESS_DELAY) {
+  if (current > button_timer + PRESS_DELAY) {
     int state = digitalRead(button);
     if (state == LOW) {
       pressed = true;
-      timer = current;
+      button_timer = current;
     }
   }
   return pressed;
 }
 
-void changeMode() {
-  if (mode_num > Mode_len) {
-    mode_num = 0;
+void changeMode(int m = -1) {
+  if (m == -1) {
+    mode_num += 1;
+    if (mode_num == mode_len) {
+      mode_num = 0;
+    }
+  } else {
+    mode_num = m;
   }
-  mode = Modes[mode_num + 1];
-  mode_num += 1;
+  mode = Modes[mode_num];
 }
 
-void turnAll(char dir, int speed) {
-  if (speed > 255) {
-    speed = 255;
+void turnAll(char dir, int deviation) {
+  const int min_deviation = 1;         // degrees
+  const int max_turn_speed = 50;       // cycles
+  const int duration = 5 * deviation; // 5 ms per 1 degree
+  int speed = 1 * deviation;
+  if (speed > max_turn_speed) {
+    speed = max_turn_speed;
   }
-  const int duration = 3; // ms
-  if (dir == 'L') {
-    Serial.printf("turn_all:%d:0:1:%d\n", speed, duration);
-  } else if (dir == 'R') {
-    Serial.printf("turn_all:%d:0:0:%d\n", speed, duration);
+  unsigned long current_time = millis();
+
+  // filter noise
+  if (deviation > min_deviation) {
+    // wait for previous command done
+    if (current_time > move_timer) {
+      // set new timer
+      move_timer = current_time + speed * 2 + duration + 10; // rump up/down + duration + extra
+      if (dir == 'L') {
+        Serial.printf("turn_all:%d:0:1:%d\n", speed, duration);
+      } else if (dir == 'R') {
+        Serial.printf("turn_all:%d:0:0:%d\n", speed, duration);
+      }
+    }
   }
 }
 
 void turn2ball() {
   char direction = 'L';
-  if (ballHeading[0] > 180) {
+  if (ballHeading > 180) {
     direction = 'R';
   }
-  int deviation = abs(180 - ballHeading[0]);  // degrees
-  turnAll(direction,55);
+  int deviation = abs(180 - ballHeading);  // degrees
+  turnAll(direction, deviation);
 }
 
 void turn2goal() {
   if (cam.goalPosition.deviation == 0) {
     return;
   }
-  turnAll(cam.goalPosition.dir, cam.goalPosition.deviation * 10 ); // cam deviation to degrees
+  turnAll(cam.goalPosition.dir, cam.goalPosition.deviation * 10 ); // cam deviation to speed
 }
 
 void move2ball(int distance) {
   // dir_move_all:max:min:direction:duration
   // max, min: 0..255
-  int speed = 0;
-  if (distance <= 100) {
-    speed = 40;
-  } else {
-    speed = 60;
-  } 
+  int speed = 20 + 0.2 * distance;
+  const int max_move_speed = 50;
+  if (speed > max_move_speed) {
+    speed = max_move_speed;
+  }
+  unsigned long current_time = millis();
   const int direction = 0; // [0, 90, 180, 270] degrees
-  const int duration = 3;  // ms
-  Serial.printf("dir_move_all:%d:0:%d:%d\n", speed, direction, duration);
-}
-
-void shoot(){
-  display.setCursor(0, 20);
-  display.print("shoot");
-  display.display();
-  Serial2.write("shoot\n");
-  delay(200);
-}
-
-void chase_ball() {
-  turn2ball();
-  move2ball(cam.distance);
-  if (cam.distance < 30) {
-    shoot();
+  const int duration = 1 * distance;  // ms
+  // wait for previous command done
+  if (current_time > move_timer) {
+    // set new timer
+    move_timer = current_time + speed * 2 + duration + 10; // rump up/down + duration + extra
+    Serial.printf("dir_move_all:%d:0:%d:%d\n", speed, direction, duration);
   }
 }
 
+void shoot(){
+  unsigned long current_time = millis();
+  // wait at least SHOOT_DELAY ms
+  if (current_time > shoot_timer) {
+    shoot_timer = current_time + SHOOT_DELAY;
+    Serial2.write("shoot\n");
+  }
+}
 
 void setup() {
   Wire.begin(SDA_PIN, SCL_PIN);
@@ -269,7 +284,6 @@ void setup() {
 
   pinMode(MODE_BUTTON, INPUT_PULLUP);  // buttons
   pinMode(START_BUTTON, INPUT_PULLUP);
-  timer = millis();
 
   // zero sensor angle
   angs[0] = 90 + SEGMENT_ANGLE/2;
@@ -282,14 +296,16 @@ void setup() {
       angs[i] = angs[i] - 360;
     }
   }
+  // init cam request
+  Serial2.write("get_pos\n");
 }
 
 void loop() {
 
   if (Serial2.available()) {
-    cam = getCAM();
+    getCAM();
+    Serial2.write("get_pos\n");
   }
-  Serial2.write("get_pos\n");
 
   calcBallHeading();
 
@@ -297,28 +313,35 @@ void loop() {
     changeMode();
   }
   if (buttonPressed(START_BUTTON)) {
-    shoot();
+    if (mode == "IDLE") {
+      changeMode(2); // BALL_CHASE
+    } else {
+      changeMode(0); // off
+    }
   }
 
   refreshDisplay();
 
   // actions
   if (mode == "BALL_SEARCH") {
-    if (abs(ballHeading[0] - 180) > 5) {
-      turn2ball();
-    }
+    turn2ball();
   } else if (mode == "DISTANCE_READ") {
-    if (cam.distance > 35) {
-      move2ball(cam.distance);
-    } else {
-      shoot();
-    }
+    move2ball(cam.distance);
   } else if (mode == "GOAL_SEARCH") {
-    turn2goal();
-    shoot();
-    mode = "IDLE";
+    //turn2goal();
+    //shoot();
   } else if (mode == "BALL_CHASE") {
-    chase_ball();
+    int deviation = abs(180 - ballHeading);
+    if (deviation > AC_DEV) {
+      turn2ball();
+    } else {
+      move2ball(cam.distance);
+    }
+    /*if (cam.distance < BALL_CLOSE) {
+      shoot();
+    }*/
   }
-  delay(50);
+
+  // cycle end
+  delay(1);
 }
