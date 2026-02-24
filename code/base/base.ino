@@ -26,12 +26,12 @@
 #define START_BUTTON 23
 #define PRESS_DELAY 500   // ms
 #define SHOOT_DELAY 1000  // ms
+#define EXTRA_CORR 50
 
 #define BALL_CLOSE 20 // mm
-
 #define ANG_CORREC -15 //degrees
-
 #define AC_DEV 5 //acceptable deviation angle
+#define MIN_SPEED 7
 
 typedef struct {
   char dir;
@@ -55,9 +55,17 @@ String Modes[] = {"IDLE","BALL_SEARCH","BALL_CHASE","DISTANCE_READ","GOAL_SEARCH
 int mode_len = 6;
 int mode_num = 0;
 String mode = Modes[mode_num];
+
 unsigned long button_timer;
 unsigned long move_timer;
 unsigned long shoot_timer;
+unsigned long distance_reset_timer;
+bool need_reset = false;
+
+// debug
+unsigned long debug_timer;
+int debug_dir = 0;
+int debug_num = 0;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
@@ -130,8 +138,21 @@ void getCAM() {
     int center = getValue(command,':',4).toInt();
     cam.goalPosition = goalPositionT(dir, deviation, left, right, center);
     int distance = getValue(command,':',5).toInt();
-    // calculate average 10/90
-    cam.distance = 0.1 * distance + 0.9 * cam.distance;
+    // filter spikes
+    if (abs(distance - cam.distance) < 10) {
+      // calculate average 10/90
+      cam.distance = 0.1 * distance + 0.9 * cam.distance;
+    } else {
+      // timeout to reset
+      if (!need_reset) {
+        need_reset = true;
+        distance_reset_timer = millis() + 1000;
+      }
+      unsigned long current = millis();
+      if (current > distance_reset_timer) {
+        cam.distance = distance;
+      }
+    }
   }
 }
 
@@ -141,8 +162,9 @@ void refreshDisplay() {
   if (mode == "BALL_SEARCH") {
     // ball heading
     display.setCursor(0, 20);
-    display.setTextSize(1);
     display.print(ballHeading);
+    // debug
+    //display.print(debug_num);
   } else if (mode == "DISTANCE_READ") {
     // distance
     display.setCursor(0, 20); // size 2: 12x16
@@ -153,15 +175,16 @@ void refreshDisplay() {
     display.drawRect((SCREEN_WIDTH - difference) / 2, (SCREEN_HEIGHT - 30) / 2, difference, 30, SSD1306_WHITE);
     display.fillRect(cam.goalPosition.center, (SCREEN_HEIGHT - 50) / 2, 10, 50, SSD1306_WHITE);
   } else if (mode == "BALL_CHASE") {
-
+    display.setCursor(0, 20);
+    display.printf("heading  %3d", ballHeading);
+    display.setCursor(0, 30);
+    display.printf("distance %3d", cam.distance);
   } else if (mode == "IR_READ") {
     display.setCursor(0, 20);
-    display.setTextSize(1);
     display.printf("ballHeading:%d",ballHeading);
   }
   // display the current mode
   display.setCursor(0, 0);
-  display.setTextSize(1);
   display.printf("mode:%s",mode);
   display.display();
 }
@@ -170,11 +193,11 @@ bool buttonPressed(int button) {
   bool pressed = false;
   unsigned long current = millis();
   // last press at least PRESS_DELAY ms ago
-  if (current > button_timer + PRESS_DELAY) {
+  if (current > button_timer) {
     int state = digitalRead(button);
     if (state == LOW) {
       pressed = true;
-      button_timer = current;
+      button_timer = current + PRESS_DELAY;
     }
   }
   return pressed;
@@ -195,8 +218,9 @@ void changeMode(int m = -1) {
 void turnAll(char dir, int deviation) {
   const int min_deviation = 1;         // degrees
   const int max_turn_speed = 50;       // cycles
-  const int duration = 8 * deviation; // 5 ms per 1 degree
-  int speed = 1 * deviation;
+  const int duration = 8 * deviation; // ms per 1 degree
+  //const int duration = debug_num * deviation; // ms per 1 degree
+  int speed = MIN_SPEED + 1 * deviation;
   if (speed > max_turn_speed) {
     speed = max_turn_speed;
   }
@@ -207,11 +231,11 @@ void turnAll(char dir, int deviation) {
     // wait for previous command done
     if (current_time > move_timer) {
       // set new timer
-      move_timer = current_time + speed * 2 + duration + 10; // rump up/down + duration + extra
+      move_timer = current_time + speed * 2 + duration + EXTRA_CORR; // rump up/down + duration + extra
       if (dir == 'L') {
-        Serial.printf("turn_all:%d:0:1:%d\n", speed, duration);
+        Serial.printf("turn_all:%d:%d:1:%d\n", speed, MIN_SPEED, duration);
       } else if (dir == 'R') {
-        Serial.printf("turn_all:%d:0:0:%d\n", speed, duration);
+        Serial.printf("turn_all:%d:%d:0:%d\n", speed, MIN_SPEED, duration);
       }
     }
   }
@@ -236,19 +260,22 @@ void turn2goal() {
 void move2ball(int distance) {
   // dir_move_all:max:min:direction:duration
   // max, min: 0..255
-  int speed = 20 + 0.2 * distance;
+  int speed = 30 + 0.2 * distance;
   const int max_move_speed = 50;
   if (speed > max_move_speed) {
     speed = max_move_speed;
   }
   unsigned long current_time = millis();
   const int direction = 0; // [0, 90, 180, 270] degrees
-  const int duration = 1 * distance;  // ms
+  int duration = 1 * distance;  // ms
+  if (duration > 500) {
+    duration = 500;
+  }
   // wait for previous command done
   if (current_time > move_timer) {
     // set new timer
-    move_timer = current_time + speed * 2 + duration + 10; // rump up/down + duration + extra
-    Serial.printf("dir_move_all:%d:0:%d:%d\n", speed, direction, duration);
+    move_timer = current_time + speed * 2 + duration + EXTRA_CORR; // rump up/down + duration + extra
+    Serial.printf("dir_move_all:%d:%d:%d:%d\n", speed, MIN_SPEED, direction, duration);
   }
 }
 
@@ -264,6 +291,7 @@ void shoot(){
 void setup() {
   Wire.begin(SDA_PIN, SCL_PIN);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.setRotation(2);
   display.clearDisplay();
   // Size 1: 6x8 pixel area
   // Size 2: 12x16 pixels
@@ -273,6 +301,7 @@ void setup() {
   display.print("CoreX bot1");
   display.display();
   delay(1000);
+  display.setTextSize(1); // default size
 
   Serial.begin(9600, SERIAL_8N1, SERIAL_RX, SERIAL_TX);
   Serial2.begin(9600, SERIAL_8N1, SERIAL2_RX, SERIAL2_TX);
@@ -325,6 +354,18 @@ void loop() {
   // actions
   if (mode == "BALL_SEARCH") {
     turn2ball();
+    // debug
+    /*unsigned long current = millis();
+    if (current > debug_timer) {
+      debug_timer = current + 5000;
+      if (debug_dir == 0) {
+        debug_dir = 1;
+        turnAll('R', 45);
+      } else {
+        debug_dir = 0;
+        turnAll('L', 45);
+      }
+    }*/
   } else if (mode == "DISTANCE_READ") {
     move2ball(cam.distance);
   } else if (mode == "GOAL_SEARCH") {
