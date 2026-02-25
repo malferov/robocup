@@ -1,14 +1,8 @@
-# RoboCup
-RoboCup Junior Netherlands team `CoreX`
+# RoboCup Junior Netherlands team CoreX
 
 <p align="center">
     <img src="corex_logo.png" alt="CoreX" width="300">
 </p>
-
-Test
-
-![image](corex_logo.png){height=300}
-
 
 # Components
 - Motors: 25mm DC 12V GA-370 Low Speed Metal Gear Motor 400RPM 3.5 Watts 90 g
