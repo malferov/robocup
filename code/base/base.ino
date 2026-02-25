@@ -26,11 +26,11 @@
 #define START_BUTTON 23
 #define PRESS_DELAY 500   // ms
 #define SHOOT_DELAY 1000  // ms
-#define EXTRA_CORR 50
+#define EXTRA_CORR 0
 
-#define BALL_CLOSE 20 // mm
 #define ANG_CORREC -15 //degrees
-#define AC_DEV 5 //acceptable deviation angle
+#define ACPT_DEVIATION 5 //acceptable deviation angle
+#define ACPT_DISTANCE 20 // mm
 #define MIN_SPEED 7
 
 typedef struct {
@@ -251,10 +251,21 @@ void turn2ball() {
 }
 
 void turn2goal() {
-  if (cam.goalPosition.deviation == 0) {
+  /*if (cam.goalPosition.deviation == 0) {
     return;
+  }*/
+  //turnAll(cam.goalPosition.dir, cam.goalPosition.deviation * 10 ); // cam deviation to speed
+  int duration = 200;
+  int speed = 50;
+  int deviation = -45; // goalPosition
+  unsigned long current_time = millis();
+  if (current_time > move_timer) {
+    move_timer = current_time + speed * 2 + duration + EXTRA_CORR; // rump up/down + duration + extra
+    //Serial.printf("speed4:50:70:90:110:500\n");
+    int Lside = speed + deviation;
+    int Rside = speed - deviation;
+    Serial.printf("speed4:%d:%d:%d:%d:%d\n", Rside, Rside, Lside, Lside, duration);
   }
-  turnAll(cam.goalPosition.dir, cam.goalPosition.deviation * 10 ); // cam deviation to speed
 }
 
 void move2ball(int distance) {
@@ -373,10 +384,12 @@ void loop() {
     //shoot();
   } else if (mode == "BALL_CHASE") {
     int deviation = abs(180 - ballHeading);
-    if (deviation > AC_DEV) {
+    if (deviation > ACPT_DEVIATION) {
       turn2ball();
+    } else if (cam.distance > ACPT_DISTANCE) {
+        move2ball(cam.distance);
     } else {
-      move2ball(cam.distance);
+      turn2goal();
     }
     /*if (cam.distance < BALL_CLOSE) {
       shoot();

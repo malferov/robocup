@@ -7,19 +7,19 @@
 // pin 2 = PWM
 
 // robo1
-/*const int motors[4][3] = {
-  {10, 9, 8},    // Motor 1
-  {11, 12, 13},  // Motor 2
-  {4, 5, 6},     // Motor 3
-  {7, 2, 3}      // Motor 4
-};*/
-// robox2
 const int motors[4][3] = {
-  {2, 3, 1},     // Motor FR 2A
-  {12, 13, 11},  // Motor RR 1A
-  {8, 9, 10},    // Motor RL 1B
-  {4, 5, 6}      // Motor FL 2B
+  {9, 10, 8},    // Motor 1FR
+  {2, 7, 3},     // Motor 2RR
+  {5, 4, 6},     // Motor 3RL
+  {12, 11, 13}   // Motor 4FL
 };
+// robox2
+/*const int motors[4][3] = {
+  {2, 3, 1},     // Motor 1FR 2A
+  {12, 13, 11},  // Motor 2RR 1A
+  {8, 9, 10},    // Motor 3RL 1B
+  {4, 5, 6}      // Motor 4FL 2B
+};*/
 
 String getValue(String data, char separator, int index) {
   int found = 0;
@@ -115,14 +115,14 @@ void turn_all(int max, int min, int dir,int time) {
   // 1 = left
   // 0 = right
   if (dir == 1) {
-    set_dir_motor(0, motors[0][0], motors[0][1]);
+    set_dir_motor(1, motors[0][0], motors[0][1]);
     set_dir_motor(1, motors[1][0], motors[1][1]);
-    set_dir_motor(1, motors[2][0], motors[2][1]);
+    set_dir_motor(0, motors[2][0], motors[2][1]);
     set_dir_motor(0, motors[3][0], motors[3][1]);
   } else if (dir ==  0) {
-    set_dir_motor(1, motors[0][0], motors[0][1]);
+    set_dir_motor(0, motors[0][0], motors[0][1]);
     set_dir_motor(0, motors[1][0], motors[1][1]);
-    set_dir_motor(0, motors[2][0], motors[2][1]);
+    set_dir_motor(1, motors[2][0], motors[2][1]);
     set_dir_motor(1, motors[3][0], motors[3][1]);
   }
   for (int duty = min; duty <= max; duty++) {
