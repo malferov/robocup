@@ -1,4 +1,6 @@
-# RoboCup Junior Netherlands team CoreX
+# RoboCup Junior
+
+Netherlands team CoreX
 
 <p align="center">
     <img src="corex_logo.png" alt="CoreX" width="300">
