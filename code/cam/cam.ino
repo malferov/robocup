@@ -22,9 +22,11 @@ typedef struct {
 const int width = 96;
 const int horizon = 48;
 const int threshold_color = 5;
-const int threshold_width = 10;
+const int threshold_width = 7;
+const int threshold_border = 3;
 const color_t no_color = color_t(0,0,0); //black
 const position_t zero_position = position_t('L',0,0,0,0);
+position_t last_known_position = zero_position;
 unsigned long timer = 0;
 
 color_t g_goal_color = no_color;
@@ -51,9 +53,10 @@ void setup() {
   // camera
   camSetup();
 
+  // ESP32S3 Dev Module
+  // Tools - PSRAM - OPI PSRAM 
   // debug info
-  /*
-  if (psramFound()) {
+  /*if (psramFound()) {
     Serial.println("PSRAM FOUND");
     Serial.printf("PSRAM size: %d bytes\n", ESP.getPsramSize());
     Serial.printf("Free PSRAM: %d bytes\n", ESP.getFreePsram());
@@ -65,7 +68,7 @@ void setup() {
   */
 }
 
-color_t get_color(uint8_t * buf, int offset){
+color_t get_color(uint8_t * buf, int offset) {
   int byte1 = buf[offset];
   int byte2 = buf[offset+1];
   int r = byte1 >> 3;
@@ -74,7 +77,7 @@ color_t get_color(uint8_t * buf, int offset){
   return color_t(r, g, b);
 }
 
-color_t get_avg_color(uint8_t * buf, int offset){
+color_t get_avg_color(uint8_t * buf, int offset) {
   // avg of 5 lines above and 5 lines below
   int five_lines_offset = width * 2 * 5;
   color_t color_above = get_color(buf, offset - five_lines_offset);
@@ -83,7 +86,7 @@ color_t get_avg_color(uint8_t * buf, int offset){
   return avg_color;
 }
 
-bool is_color(color_t sample, color_t color){
+bool is_color(color_t sample, color_t color) {
   int diff_r = abs(sample.r-color.r);
   int diff_g = abs(sample.g-color.g);
   int diff_b = abs(sample.b-color.b);
@@ -93,7 +96,7 @@ bool is_color(color_t sample, color_t color){
   return match;
 }
 
-color_t capture_color(){
+color_t capture_color() {
   //capture a frame
   camera_fb_t * fb = esp_camera_fb_get();
   if (!fb) {
@@ -112,45 +115,69 @@ color_t capture_color(){
   return color;
 }
 
-position_t get_goal_position(color_t goal_color){
+position_t get_goal_position(color_t goal_color) {
   //capture a frame
   camera_fb_t * fb = esp_camera_fb_get();
   if (!fb) {
     ESP_LOGE(TAG, "Frame buffer could not be acquired");
-    return zero_position;
+    return last_known_position;
   }
   int offset = horizon * width * 2;
   int left=0;
+  int left_cnt=0;
   int right=0;
+  int right_cnt=0;
   for (int i=0; i<width; i++) {
     color_t color = get_avg_color(fb -> buf, offset + i*2);
-    if (left == 0 && is_color(color, goal_color)){
-      left = i;
+    if (left == 0) {
+      if (is_color(color, goal_color)) {
+        if (left_cnt < threshold_border) {
+          left_cnt++;
+        } else {
+          left = i - threshold_border;
+          right = left;
+        }
+      } else {
+        left_cnt = 0;
+      }
     }
-    if (is_color(color, goal_color)){
-      right = i;
-    } else if (right - left < threshold_width) {
-      left = 0;
-      right = 0;
+    if (left > 0) {
+      if (is_color(color, goal_color)) {
+        if (right_cnt < threshold_border) {
+          right_cnt++;
+        } else {
+          right = i;
+        }
+      } else {
+        right_cnt = 0;
+      }
     }
   }
+
   //return the frame buffer back to be reused
   esp_camera_fb_return(fb);
 
-  int center = (right + left)/2;
+  if (right - left < threshold_width) {
+    left = 0;
+    right = 0;
+  } 
+
   position_t position;
-  if (center > width/2) {
-    position.dir = 'R';
+  if (left == 0 && right == 0){
+    position = last_known_position;
   } else {
-    position.dir = 'L';
+    int center = (right + left)/2;
+    if (center > width/2) {
+      position.dir = 'R';
+    } else {
+      position.dir = 'L';
+    }
+    position.val = 8 * abs(center - width/2) / (width/2);
+    position.left = left;
+    position.right = right;
+    position.center = center;
+    last_known_position = position;
   }
-  position.val = 8 * abs(center - width/2) / (width/2);
-  if (left == 0 or right == 0){
-    position = zero_position;
-  }
-  position.left = left;
-  position.right = right;
-  position.center = center;
   // debug
   //Serial.printf("left %d right %d center %d goal_color %d %d %d ", left, right, center, goal_color.r, goal_color.g, goal_color.b);
   //Serial.printf("position %c%d\n", position.dir, position.val);

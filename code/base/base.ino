@@ -51,7 +51,7 @@ CAMT cam = CAMT(zeroPosition, 0);
 int ballHeading = 180;  // ahead by default
 int angs[15];           // sensors angles
 
-String Modes[] = {"IDLE","BALL_SEARCH","BALL_CHASE","DISTANCE_READ","GOAL_SEARCH","IR_READ"};
+String Modes[] = {"IDLE","BALL_CHASE","BALL_SEARCH","DISTANCE_READ","GOAL_SEARCH","IR_READ"};
 int mode_len = 6;
 int mode_num = 0;
 String mode = Modes[mode_num];
@@ -143,7 +143,7 @@ void getCAM() {
       // calculate average 10/90
       cam.distance = 0.1 * distance + 0.9 * cam.distance;
     } else {
-      // timeout to reset
+      // reset timeout
       if (!need_reset) {
         need_reset = true;
         distance_reset_timer = millis() + 1000;
@@ -151,6 +151,7 @@ void getCAM() {
       unsigned long current = millis();
       if (current > distance_reset_timer) {
         cam.distance = distance;
+        need_reset = false;
       }
     }
   }
@@ -179,6 +180,8 @@ void refreshDisplay() {
     display.printf("heading  %3d", ballHeading);
     display.setCursor(0, 30);
     display.printf("distance %3d", cam.distance);
+    display.setCursor(0, 40);
+    display.printf("goaldev   %c%d", cam.goalPosition.dir, cam.goalPosition.deviation);
   } else if (mode == "IR_READ") {
     display.setCursor(0, 20);
     display.printf("ballHeading:%d",ballHeading);
@@ -215,6 +218,18 @@ void changeMode(int m = -1) {
   mode = Modes[mode_num];
 }
 
+bool move_timeout(int speed, int duration) {
+  unsigned long current_time = millis();
+  // wait for previous command done
+  if (current_time > move_timer) {
+    // set new timer
+    // rump up/down + duration + extra
+    move_timer = current_time + speed * 2 + duration + EXTRA_CORR;
+    return true;
+  }
+  return false;
+}
+
 void turnAll(char dir, int deviation) {
   const int min_deviation = 1;         // degrees
   const int max_turn_speed = 50;       // cycles
@@ -224,14 +239,9 @@ void turnAll(char dir, int deviation) {
   if (speed > max_turn_speed) {
     speed = max_turn_speed;
   }
-  unsigned long current_time = millis();
-
   // filter noise
   if (deviation > min_deviation) {
-    // wait for previous command done
-    if (current_time > move_timer) {
-      // set new timer
-      move_timer = current_time + speed * 2 + duration + EXTRA_CORR; // rump up/down + duration + extra
+    if (move_timeout(speed, duration)) {
       if (dir == 'L') {
         Serial.printf("turn_all:%d:%d:1:%d\n", speed, MIN_SPEED, duration);
       } else if (dir == 'R') {
@@ -251,17 +261,14 @@ void turn2ball() {
 }
 
 void turn2goal() {
-  /*if (cam.goalPosition.deviation == 0) {
-    return;
-  }*/
-  //turnAll(cam.goalPosition.dir, cam.goalPosition.deviation * 10 ); // cam deviation to speed
-  int duration = 200;
-  int speed = 50;
-  int deviation = -45; // goalPosition
-  unsigned long current_time = millis();
-  if (current_time > move_timer) {
-    move_timer = current_time + speed * 2 + duration + EXTRA_CORR; // rump up/down + duration + extra
-    //Serial.printf("speed4:50:70:90:110:500\n");
+  int duration = 1000;
+  int speed = 20;
+  if (move_timeout(speed, duration)) {
+    // cam deviation to speed
+    int deviation = cam.goalPosition.deviation * 10;
+    if (cam.goalPosition.dir == 'L') {
+      deviation = -deviation;
+    }
     int Lside = speed + deviation;
     int Rside = speed - deviation;
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", Rside, Rside, Lside, Lside, duration);
@@ -276,16 +283,12 @@ void move2ball(int distance) {
   if (speed > max_move_speed) {
     speed = max_move_speed;
   }
-  unsigned long current_time = millis();
   const int direction = 0; // [0, 90, 180, 270] degrees
   int duration = 1 * distance;  // ms
   if (duration > 500) {
     duration = 500;
   }
-  // wait for previous command done
-  if (current_time > move_timer) {
-    // set new timer
-    move_timer = current_time + speed * 2 + duration + EXTRA_CORR; // rump up/down + duration + extra
+  if (move_timeout(speed, duration)) {
     Serial.printf("dir_move_all:%d:%d:%d:%d\n", speed, MIN_SPEED, direction, duration);
   }
 }
@@ -296,6 +299,14 @@ void shoot(){
   if (current_time > shoot_timer) {
     shoot_timer = current_time + SHOOT_DELAY;
     Serial2.write("shoot\n");
+  }
+}
+
+void kick() {
+  int duration = 200;
+  int speed = 255;
+  if (move_timeout(speed, duration)) {
+    Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, speed, speed, speed, duration);
   }
 }
 
@@ -354,7 +365,7 @@ void loop() {
   }
   if (buttonPressed(START_BUTTON)) {
     if (mode == "IDLE") {
-      changeMode(2); // BALL_CHASE
+      changeMode(1); // BALL_CHASE
     } else {
       changeMode(0); // off
     }
@@ -387,13 +398,12 @@ void loop() {
     if (deviation > ACPT_DEVIATION) {
       turn2ball();
     } else if (cam.distance > ACPT_DISTANCE) {
-        move2ball(cam.distance);
-    } else {
+      move2ball(cam.distance);
+    } else if (cam.goalPosition.deviation > 0) {
       turn2goal();
+    } else {
+      kick();
     }
-    /*if (cam.distance < BALL_CLOSE) {
-      shoot();
-    }*/
   }
 
   // cycle end
