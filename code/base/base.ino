@@ -28,7 +28,7 @@
 */
 
 // bot2
-#define MUX_SIG 8
+#define MUX_SIG 13
 #define MUX_S3 15
 #define MUX_S2 2
 #define MUX_S1 0
