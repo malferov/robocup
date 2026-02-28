@@ -1,6 +1,9 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+// bot1
+//#include <Adafruit_SSD1306.h>
+// bot2
+#include <Adafruit_SH110X.h>
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -13,17 +16,29 @@
 #define SERIAL2_RX 16
 #define SERIAL2_TX 17
 
+// bot1
+/*
 #define MUX_SIG 15
 #define MUX_S3 2
 #define MUX_S2 4
 #define MUX_S1 5
 #define MUX_S0 18
+#define MODE_BUTTON 19
+#define START_BUTTON 23
+*/
+
+// bot2
+#define MUX_SIG 8
+#define MUX_S3 15
+#define MUX_S2 2
+#define MUX_S1 0
+#define MUX_S0 4
+#define MODE_BUTTON 26
+#define START_BUTTON 23
 
 #define ANALOG_MAX 4095
 #define SEGMENT_ANGLE 24
 
-#define MODE_BUTTON 19
-#define START_BUTTON 23
 #define PRESS_DELAY 500   // ms
 #define SHOOT_DELAY 1000  // ms
 #define EXTRA_CORR 0
@@ -32,6 +47,15 @@
 #define ACPT_DEVIATION 5 //acceptable deviation angle
 #define ACPT_DISTANCE 20 // mm
 #define MIN_SPEED 7
+
+// bot1
+//#define WHITE SSD1306_WHITE
+//#define BLACK SSD1306_BLACK
+//Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+// bot2
+#define WHITE SH110X_WHITE
+#define BLACK SH110X_BLACK
+Adafruit_SH1106G display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 typedef struct {
   char dir;
@@ -66,8 +90,6 @@ bool need_reset = false;
 unsigned long debug_timer;
 int debug_dir = 0;
 int debug_num = 0;
-
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 String getValue(String data, char separator, int index) {
   int found = 0;
@@ -173,8 +195,9 @@ void refreshDisplay() {
   } else if (mode == "GOAL_SEARCH") {
     // camera
     int difference = abs(cam.goalPosition.left - cam.goalPosition.right);
-    display.drawRect((SCREEN_WIDTH - difference) / 2, (SCREEN_HEIGHT - 30) / 2, difference, 30, SSD1306_WHITE);
-    display.fillRect(cam.goalPosition.center, (SCREEN_HEIGHT - 50) / 2, 10, 50, SSD1306_WHITE);
+
+    display.drawRect((SCREEN_WIDTH - difference) / 2, (SCREEN_HEIGHT - 30) / 2, difference, 30, WHITE);
+    display.fillRect(cam.goalPosition.center, (SCREEN_HEIGHT - 50) / 2, 10, 50, WHITE);
   } else if (mode == "BALL_CHASE") {
     display.setCursor(0, 20);
     display.printf("heading  %3d", ballHeading);
@@ -312,13 +335,16 @@ void kick() {
 
 void setup() {
   Wire.begin(SDA_PIN, SCL_PIN);
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  // bot1
+  //display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  // bot2
+  display.begin(0x3C);
   display.setRotation(2);
   display.clearDisplay();
   // Size 1: 6x8 pixel area
   // Size 2: 12x16 pixels
   display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+  display.setTextColor(WHITE, BLACK);
   display.setCursor(0, 20);  // Move text to new origin
   display.print("CoreX bot1");
   display.display();
