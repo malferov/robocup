@@ -1,7 +1,9 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
-// bot1
-/*#include <Adafruit_SSD1306.h>
+#define BOT_ID 1
+#if BOT_ID == 1
+#include <Adafruit_SSD1306.h>
+#define BOT_ID 1
 #define MUX_SIG 15
 #define MUX_S3 2
 #define MUX_S2 4
@@ -10,7 +12,7 @@
 #define MODE_BUTTON 19
 #define START_BUTTON 23
 #define INIT_DISTANCE 0
-*/ // bot2
+#else
 #include <Adafruit_SH110X.h>
 #define MUX_SIG 13
 #define MUX_S3 15
@@ -20,7 +22,7 @@
 #define MODE_BUTTON 26
 #define START_BUTTON 23
 #define INIT_DISTANCE 200 // fixed
-// end
+#endif
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -42,18 +44,18 @@
 
 #define ACPT_DEVIATION 5 //acceptable deviation angle
 #define ACPT_DISTANCE 20 // mm
-#define BOT2_FIXED_DISTANCE 100 // mm
 #define MIN_SPEED 7
 #define MAX_BALL_DEVIATION 10 //degrees
 
-// bot1
-//#define WHITE SSD1306_WHITE
-//#define BLACK SSD1306_BLACK
-//Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-// bot2
+# if BOT_ID == 1
+#define WHITE SSD1306_WHITE
+#define BLACK SSD1306_BLACK
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+#else
 #define WHITE SH110X_WHITE
 #define BLACK SH110X_BLACK
 Adafruit_SH1106G display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+#endif
 
 typedef struct {
   char dir;
@@ -73,7 +75,7 @@ CAMT cam = CAMT(zeroPosition, INIT_DISTANCE);
 int ballHeading = 0;  // ahead by default
 int angs[15];         // sensors angles
 
-String Modes[] = {"IDLE","GOAL_KEEPER","IR_READ","BALL_CHASE","BALL_SEARCH","DISTANCE_READ","GOAL_SEARCH"};
+String Modes[] = {"IDLE","GOAL_SEARCH","GOAL_KEEPER","BALL_CHASE","BALL_SEARCH","IR_READ","DISTANCE_READ"};
 int mode_len = 7;
 int mode_num = 0;
 String mode = Modes[mode_num];
@@ -276,29 +278,6 @@ bool move_timeout(int speed, int duration) {
   }
   return false;
 }
-/*
-void turnAll(char dir, int deviation) {
-  const int min_deviation = 1;         // degrees
-  const int max_turn_speed = 50;       // cycles
-  const int duration = 8 * deviation; // ms per 1 degree
-  //const int duration = debug_num * deviation; // ms per 1 degree
-  int speed = MIN_SPEED + 1 * deviation;
-  if (speed > max_turn_speed) {
-    speed = max_turn_speed;
-  }
-  // filter noise
-  if (deviation > min_deviation) {
-    if (move_timeout(speed, duration)) {
-      int Rside = 1;
-      int Lside = -1;
-      if (dir == 'R') {
-        Rside = -1;
-        Lside = 1;
-      }
-      Serial.printf("speed4:%d:%d:%d:%d:%d\n", Rside * speed, Rside * speed, Lside * speed, Lside * speed, duration);
-    }
-  }
-}*/
 
 void turn2ball(int deviation) {
   //turnAll(direction, deviation);
@@ -320,16 +299,16 @@ void turn2ball(int deviation) {
 }
 
 void turn2goal() {
-  int duration = 1000;
+  int duration = cam.goalPosition.deviation * 50;
   int speed = 20;
   if (move_timeout(speed, duration)) {
-    // cam deviation to speed
-    int deviation = cam.goalPosition.deviation * 10;
+    // cam deviation to speed delta
+    int delta = cam.goalPosition.deviation * 2;
     if (cam.goalPosition.dir == 'L') {
-      deviation = -deviation;
+      delta = -delta;
     }
-    int Lside = speed + deviation;
-    int Rside = speed - deviation;
+    int Lside = speed + delta;
+    int Rside = speed - delta;
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", Rside, Rside, Lside, Lside, duration);
   }
 }
@@ -368,14 +347,16 @@ void kick() {
   if (move_timeout(speed, duration + pause)) {
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, speed, speed, speed, duration);
   }
+  shoot();
 }
 
 void setup() {
   Wire.begin(SDA_PIN, SCL_PIN);
-  // bot1
-  //display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  // bot2
-  display.begin(0x3C);
+  #if BOT_ID == 1
+    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  #else
+    display.begin(0x3C);
+  #endif
   display.setRotation(2);
   display.clearDisplay();
   // Size 1: 6x8 pixel area
@@ -383,7 +364,7 @@ void setup() {
   display.setTextSize(2);
   display.setTextColor(WHITE, BLACK);
   display.setCursor(0, 20);  // Move text to new origin
-  display.print("CoreX bot1");
+  display.printf("CoreX bot%d", BOT_ID);
   display.display();
   delay(1000);
   display.setTextSize(1); // default size
@@ -445,8 +426,7 @@ void loop() {
   } else if (mode == "DISTANCE_READ") {
     move2ball(cam.distance);
   } else if (mode == "GOAL_SEARCH") {
-    //turn2goal();
-    //shoot();
+    turn2goal();
   } else if (mode == "BALL_CHASE") {
     if (deviation > ACPT_DEVIATION) {
       turn2ball(deviation);
