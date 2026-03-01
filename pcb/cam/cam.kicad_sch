@@ -2355,6 +2355,18 @@
 			(embedded_fonts no)
 		)
 	)
+	(rectangle
+		(start 74.93 48.26)
+		(end 105.41 69.85)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(fill
+			(type none)
+		)
+		(uuid b57e362c-0aca-4a55-aa98-9909f3d1bb21)
+	)
 	(junction
 		(at 110.49 92.71)
 		(diameter 0)
@@ -4826,7 +4838,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "edc1e0d5-aa65-4e6c-af98-dcbc53c8c911")
-		(property "Reference" "CAM_1"
+		(property "Reference" "CAM1_"
 			(at 104.14 58.42 0)
 			(effects
 				(font
@@ -4899,7 +4911,7 @@
 		(instances
 			(project ""
 				(path "/6ec8a7a2-ab39-4f77-8961-49439b5813eb"
-					(reference "CAM_1")
+					(reference "CAM1_")
 					(unit 1)
 				)
 			)

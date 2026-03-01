@@ -1,9 +1,26 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 // bot1
-//#include <Adafruit_SSD1306.h>
-// bot2
+/*#include <Adafruit_SSD1306.h>
+#define MUX_SIG 15
+#define MUX_S3 2
+#define MUX_S2 4
+#define MUX_S1 5
+#define MUX_S0 18
+#define MODE_BUTTON 19
+#define START_BUTTON 23
+#define INIT_DISTANCE 0
+*/ // bot2
 #include <Adafruit_SH110X.h>
+#define MUX_SIG 13
+#define MUX_S3 15
+#define MUX_S2 2
+#define MUX_S1 0
+#define MUX_S0 4
+#define MODE_BUTTON 26
+#define START_BUTTON 23
+#define INIT_DISTANCE 200 // fixed
+// end
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -16,26 +33,6 @@
 #define SERIAL2_RX 16
 #define SERIAL2_TX 17
 
-// bot1
-/*
-#define MUX_SIG 15
-#define MUX_S3 2
-#define MUX_S2 4
-#define MUX_S1 5
-#define MUX_S0 18
-#define MODE_BUTTON 19
-#define START_BUTTON 23
-*/
-
-// bot2
-#define MUX_SIG 13
-#define MUX_S3 15
-#define MUX_S2 2
-#define MUX_S1 0
-#define MUX_S0 4
-#define MODE_BUTTON 26
-#define START_BUTTON 23
-
 #define ANALOG_MAX 4095
 #define SEGMENT_ANGLE 24
 
@@ -43,9 +40,9 @@
 #define SHOOT_DELAY 1000  // ms
 #define EXTRA_CORR 0
 
-#define ANG_CORREC -15 //degrees
 #define ACPT_DEVIATION 5 //acceptable deviation angle
 #define ACPT_DISTANCE 20 // mm
+#define BOT2_FIXED_DISTANCE 100 // mm
 #define MIN_SPEED 7
 
 // bot1
@@ -71,11 +68,11 @@ typedef struct {
 } CAMT;
 
 goalPositionT zeroPosition = goalPositionT('L',0,0,0,0);
-CAMT cam = CAMT(zeroPosition, 0);
-int ballHeading = 180;  // ahead by default
-int angs[15];           // sensors angles
+CAMT cam = CAMT(zeroPosition, INIT_DISTANCE);
+int ballHeading = 0;  // ahead by default
+int angs[15];         // sensors angles
 
-String Modes[] = {"IDLE","BALL_CHASE","BALL_SEARCH","DISTANCE_READ","GOAL_SEARCH","IR_READ"};
+String Modes[] = {"IDLE","IR_READ","BALL_CHASE","BALL_SEARCH","DISTANCE_READ","GOAL_SEARCH"};
 int mode_len = 6;
 int mode_num = 0;
 String mode = Modes[mode_num];
@@ -133,21 +130,34 @@ void calcBallHeading() {
   int sum = 0;
   int cnt = 0;
   // get current angle
+  // see ChatGPT Circular Mean (Vector Averaging) for trig solution
+  // and Mean Delta lightweight option when all angles lie on the same "side" of the circle
   for (int i = 0; i < 15; i++) {
     irs[i] = getIR(i);
     if (irs[i] == 1) {
       cnt++;
-      sum = sum + angs[i];
+      int delta = angs[i] - angle;
+      if (delta > 180) {
+        delta -= 360;
+      }
+      if (delta < -180) {
+        delta += 360;
+      }
+      sum = sum + delta;
     }
   }
   if (cnt > 0) {
-    angle = sum / cnt;
-    // add correction
-    //angle += ANG_CORREC;
+    // low-pass filter 10%
+    angle += (sum / cnt) * 0.1;
   }
-  // calculate average
-  // 10/90
-  ballHeading = 0.1 * angle + 0.9 * ballHeading;
+  // wrap to 0–360
+  if (angle < 0) {
+    angle += 360;
+  }
+  if (angle >= 360) {
+    angle -= 360;
+  }
+  ballHeading = angle;
 }
 
 void getCAM() {
@@ -207,11 +217,11 @@ void refreshDisplay() {
     display.printf("goaldev   %c%d", cam.goalPosition.dir, cam.goalPosition.deviation);
   } else if (mode == "IR_READ") {
     display.setCursor(0, 20);
-    display.printf("ballHeading:%d",ballHeading);
+    display.printf("heading %3d", ballHeading);
   }
   // display the current mode
   display.setCursor(0, 0);
-  display.printf("mode:%s",mode);
+  display.printf("mode %s", mode);
   display.display();
 }
 
@@ -252,7 +262,7 @@ bool move_timeout(int speed, int duration) {
   }
   return false;
 }
-
+/*
 void turnAll(char dir, int deviation) {
   const int min_deviation = 1;         // degrees
   const int max_turn_speed = 50;       // cycles
@@ -265,22 +275,34 @@ void turnAll(char dir, int deviation) {
   // filter noise
   if (deviation > min_deviation) {
     if (move_timeout(speed, duration)) {
-      if (dir == 'L') {
-        Serial.printf("turn_all:%d:%d:1:%d\n", speed, MIN_SPEED, duration);
-      } else if (dir == 'R') {
-        Serial.printf("turn_all:%d:%d:0:%d\n", speed, MIN_SPEED, duration);
+      int Rside = 1;
+      int Lside = -1;
+      if (dir == 'R') {
+        Rside = -1;
+        Lside = 1;
       }
+      Serial.printf("speed4:%d:%d:%d:%d:%d\n", Rside * speed, Rside * speed, Lside * speed, Lside * speed, duration);
     }
   }
-}
+}*/
 
-void turn2ball() {
-  char direction = 'L';
-  if (ballHeading > 180) {
-    direction = 'R';
+void turn2ball(int deviation) {
+  //turnAll(direction, deviation);
+  const int duration = 8 * deviation;  // ms per 1 degree
+  const int max_turn_speed = 50;       // cycles
+  int speed = MIN_SPEED + 1 * deviation;
+  if (speed > max_turn_speed) {
+    speed = max_turn_speed;
   }
-  int deviation = abs(180 - ballHeading);  // degrees
-  turnAll(direction, deviation);
+  if (move_timeout(speed, duration)) {
+    int Rside = 1;
+    int Lside = -1;
+    if (ballHeading < 180) {
+      Rside = -1;
+      Lside = 1;
+    }
+    Serial.printf("speed4:%d:%d:%d:%d:%d\n", Rside * speed, Rside * speed, Lside * speed, Lside * speed, duration);
+  }
 }
 
 void turn2goal() {
@@ -301,7 +323,7 @@ void turn2goal() {
 void move2ball(int distance) {
   // dir_move_all:max:min:direction:duration
   // max, min: 0..255
-  int speed = 30 + 0.2 * distance;
+  int speed = MIN_SPEED * 2 + 0.2 * distance;
   const int max_move_speed = 50;
   if (speed > max_move_speed) {
     speed = max_move_speed;
@@ -328,7 +350,8 @@ void shoot(){
 void kick() {
   int duration = 200;
   int speed = 255;
-  if (move_timeout(speed, duration)) {
+  int pause = 5000;
+  if (move_timeout(speed, duration + pause)) {
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, speed, speed, speed, duration);
   }
 }
@@ -352,7 +375,9 @@ void setup() {
   display.setTextSize(1); // default size
 
   Serial.begin(9600, SERIAL_8N1, SERIAL_RX, SERIAL_TX);
+  Serial.println();
   Serial2.begin(9600, SERIAL_8N1, SERIAL2_RX, SERIAL2_TX);
+  Serial2.println();
 
   pinMode(MUX_S3, OUTPUT);  // set MUX_Sx as output
   pinMode(MUX_S2, OUTPUT);
@@ -364,8 +389,6 @@ void setup() {
 
   // zero sensor angle
   angs[0] = 90 + SEGMENT_ANGLE/2;
-  // add 180 correction
-  angs[0] = angs[0] + 180;
   // sensors angles
   for (int i = 1; i < 15; i++) {
     angs[i] = angs[i-1] + SEGMENT_ANGLE;
@@ -391,38 +414,28 @@ void loop() {
   }
   if (buttonPressed(START_BUTTON)) {
     if (mode == "IDLE") {
-      changeMode(1); // BALL_CHASE
+      changeMode(1); // MAIN_MODE
     } else {
       changeMode(0); // off
     }
   }
 
   refreshDisplay();
-
   // actions
+  int deviation = ballHeading;
+  if (deviation > 180) {
+    deviation = 360 - deviation;
+  }
   if (mode == "BALL_SEARCH") {
-    turn2ball();
-    // debug
-    /*unsigned long current = millis();
-    if (current > debug_timer) {
-      debug_timer = current + 5000;
-      if (debug_dir == 0) {
-        debug_dir = 1;
-        turnAll('R', 45);
-      } else {
-        debug_dir = 0;
-        turnAll('L', 45);
-      }
-    }*/
+    turn2ball(deviation);
   } else if (mode == "DISTANCE_READ") {
     move2ball(cam.distance);
   } else if (mode == "GOAL_SEARCH") {
     //turn2goal();
     //shoot();
   } else if (mode == "BALL_CHASE") {
-    int deviation = abs(180 - ballHeading);
     if (deviation > ACPT_DEVIATION) {
-      turn2ball();
+      turn2ball(deviation);
     } else if (cam.distance > ACPT_DISTANCE) {
       move2ball(cam.distance);
     } else if (cam.goalPosition.deviation > 0) {
