@@ -1,6 +1,8 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
-#define BOT_ID 1
+
+#define BOT_ID 1 // or 2
+
 #if BOT_ID == 1
 #include <Adafruit_SSD1306.h>
 #define BOT_ID 1
@@ -21,7 +23,7 @@
 #define MUX_S0 4
 #define MODE_BUTTON 26
 #define START_BUTTON 23
-#define INIT_DISTANCE 200 // fixed
+#define INIT_DISTANCE 200 // fixed distance for bot2
 #endif
 
 #define SCREEN_WIDTH 128
@@ -43,7 +45,7 @@
 #define EXTRA_CORR 0
 
 #define ACPT_DEVIATION 5 //acceptable deviation angle
-#define ACPT_DISTANCE 20 // mm
+#define ACPT_DISTANCE 50 // mm
 #define MIN_SPEED 7
 #define MAX_BALL_DEVIATION 10 //degrees
 
@@ -75,9 +77,10 @@ CAMT cam = CAMT(zeroPosition, INIT_DISTANCE);
 int ballHeading = 0;  // ahead by default
 int angs[15];         // sensors angles
 
-String Modes[] = {"IDLE","GOAL_SEARCH","GOAL_KEEPER","BALL_CHASE","BALL_SEARCH","IR_READ","DISTANCE_READ"};
-int mode_len = 7;
+String Modes[] = {"GOAL_SEARCH","GOAL_KEEPER","BALL_CHASE","BALL_SEARCH","IR_READ","DISTANCE_READ"};
+int mode_len = 6;
 int mode_num = 0;
+bool idle = true;
 String mode = Modes[mode_num];
 
 unsigned long button_timer;
@@ -203,21 +206,22 @@ void refreshDisplay() {
     //display.print(debug_num);
   } else if (mode == "DISTANCE_READ") {
     // distance
-    display.setCursor(0, 20); // size 2: 12x16
+    display.setCursor(0, 20);
     display.printf("%03d", cam.distance);
   } else if (mode == "GOAL_SEARCH") {
     // camera
-    int difference = abs(cam.goalPosition.left - cam.goalPosition.right);
-
+    display.setCursor(SCREEN_WIDTH-6*2, SCREEN_HEIGHT-8); // Size 1: 6x8 pixel area
+    display.printf("%c%d", cam.goalPosition.dir, cam.goalPosition.deviation);
+    int difference = cam.goalPosition.right - cam.goalPosition.left;
     display.drawRect((SCREEN_WIDTH - difference) / 2, (SCREEN_HEIGHT - 30) / 2, difference, 30, WHITE);
-    display.fillRect(cam.goalPosition.center, (SCREEN_HEIGHT - 50) / 2, 10, 50, WHITE);
+    display.fillRect(cam.goalPosition.center - 5, (SCREEN_HEIGHT - 50) / 2, 10, 50, WHITE);
   } else if (mode == "BALL_CHASE") {
     display.setCursor(0, 20);
     display.printf("heading  %3d", ballHeading);
     display.setCursor(0, 30);
     display.printf("distance %3d", cam.distance);
     display.setCursor(0, 40);
-    display.printf("goaldev   %c%d", cam.goalPosition.dir, cam.goalPosition.deviation);
+    display.printf("goal      %c%d", cam.goalPosition.dir, cam.goalPosition.deviation);
   } else if (mode == "IR_READ") {
     display.setCursor(0, 20);
     display.printf("heading %3d", ballHeading);
@@ -237,7 +241,11 @@ void refreshDisplay() {
   }
   // display the current mode
   display.setCursor(0, 0);
-  display.printf("mode %s", mode);
+  display.printf("%s", mode);
+  if (idle) {
+    display.setCursor(SCREEN_WIDTH-6*4, 0); // Size 1: 6x8 pixel area
+    display.printf("%s", "IDLE");
+  }
   display.display();
 }
 
@@ -341,12 +349,13 @@ void shoot(){
 }
 
 void kick() {
-  int duration = 200;
+  int duration = 50;
   int speed = 255;
   int pause = 5000;
   if (move_timeout(speed, duration + pause)) {
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, speed, speed, speed, duration);
   }
+  delay(speed + duration + 300); // cmd delay?
   shoot();
 }
 
@@ -408,44 +417,47 @@ void loop() {
     changeMode();
   }
   if (buttonPressed(START_BUTTON)) {
-    if (mode == "IDLE") {
-      changeMode(1); // MAIN_MODE
+    if (idle) {
+      idle = false;
+      changeMode(mode_num); // run selected mode
     } else {
-      changeMode(0); // off
+      idle = true; // off
     }
   }
 
   refreshDisplay();
   // actions
-  int deviation = ballHeading;
-  if (deviation > 180) {
-    deviation = 360 - deviation;
-  }
-  if (mode == "BALL_SEARCH") {
-    turn2ball(deviation);
-  } else if (mode == "DISTANCE_READ") {
-    move2ball(cam.distance);
-  } else if (mode == "GOAL_SEARCH") {
-    turn2goal();
-  } else if (mode == "BALL_CHASE") {
-    if (deviation > ACPT_DEVIATION) {
-      turn2ball(deviation);
-    } else if (cam.distance > ACPT_DISTANCE) {
-      move2ball(cam.distance);
-    } else if (cam.goalPosition.deviation > 0) {
-      turn2goal();
-    } else {
-      kick();
+  if (!idle) {
+    int deviation = ballHeading;
+    if (deviation > 180) {
+      deviation = 360 - deviation;
     }
-  //robot 2
-  } else if (mode == "GOAL_KEEPER") {
-    int speed = 50;
-    int duration = 25;
-    if (move_timeout(speed, duration)) {
-      if (ballHeading > MAX_BALL_DEVIATION && ballHeading < 180) {
-        Serial.printf("speed4:%d:%d:%d:%d:%d\n", -speed, speed, -speed, speed, duration);
-      } else if (ballHeading < 360-MAX_BALL_DEVIATION && ballHeading > 180) {
-        Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, -speed, speed, -speed, duration);
+    if (mode == "BALL_SEARCH") {
+      turn2ball(deviation);
+    } else if (mode == "DISTANCE_READ") {
+      move2ball(cam.distance);
+    } else if (mode == "GOAL_SEARCH") {
+      turn2goal();
+    } else if (mode == "BALL_CHASE") {
+      if (deviation > ACPT_DEVIATION) {
+        turn2ball(deviation);
+      } else if (cam.distance > ACPT_DISTANCE) {
+        move2ball(cam.distance);
+      } else if (cam.goalPosition.deviation > 5) {
+        turn2goal();
+      } else {
+        kick();
+      }
+    //robot 2
+    } else if (mode == "GOAL_KEEPER") {
+      int speed = 50;
+      int duration = 25;
+      if (move_timeout(speed, duration)) {
+        if (ballHeading > MAX_BALL_DEVIATION && ballHeading < 180) {
+          Serial.printf("speed4:%d:%d:%d:%d:%d\n", -speed, speed, -speed, speed, duration);
+        } else if (ballHeading < 360-MAX_BALL_DEVIATION && ballHeading > 180) {
+          Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, -speed, speed, -speed, duration);
+        }
       }
     }
   }
