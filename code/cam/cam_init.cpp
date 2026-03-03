@@ -61,22 +61,26 @@ void camSetup() {
 
   sensor_t *s = esp_camera_sensor_get();
 
-  s->set_whitebal(s, 0);      // disable auto white balance
-  s->set_awb_gain(s, 0);
-  //s->set_whitebal(s, 1);
-  //s->set_awb_gain(s, 1);
-
   s->set_gain_ctrl(s, 0);
-  s->set_agc_gain(s, 16);
-  //s->set_aec_value(s, 300);
-
+  //s->set_agc_gain(s, 16); // bright at sunlight
+  s->set_agc_gain(s, 8);
+  //s->set_agc_gain(s, 4);  // dark
+  
   s->set_exposure_ctrl(s, 0); // disable auto exposure
-  s->set_aec_value(s, 180);
+  //s->set_aec_value(s, 300);
+  //s->set_aec_value(s, 180); // bright at sunlight
+  s->set_aec_value(s, 120);
+  //s->set_aec_value(s, 80); // dark
 
   s->set_brightness(s, 0);
   //s->set_saturation(s, 2);
   s->set_saturation(s, 1);
   s->set_contrast(s, 1);
+
+  s->set_whitebal(s, 0);      // disable auto white balance
+  s->set_awb_gain(s, 0);
+  //s->set_whitebal(s, 1);
+  //s->set_awb_gain(s, 1);
 
 /*
   WiFi.begin(ssid, password);
