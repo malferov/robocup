@@ -1,4 +1,7 @@
 #include "esp_camera.h"
+// debug
+//#include "mbedtls/base64.h"
+
 #define BUTTON_PIN 47
 #define PRESS_DELAY 500 // ms
 #define TRIG_PIN 19
@@ -19,9 +22,14 @@ typedef struct {
   int center;
 } position_t;
 
-const int width = 96;
-const int horizon = 48;
-const int threshold_color = 5;
+//const int width = 96;
+//const int horizon = 96/2;
+const int width = 160;
+const int horizon = 120 * 0.52;
+// 0.51 0.75 of the field
+// 0.52 0.50 of the field
+// 0.53 0.25 of the field
+const int threshold_color = 6; // 5;
 const int threshold_width = 7;
 const int threshold_border = 3;
 const color_t no_color = color_t(0,0,0); //black
@@ -49,6 +57,7 @@ void setup() {
   digitalWrite(MOSFET_PIN, HIGH);
   // serial
   Serial.begin(9600);
+  //Serial.begin(115200);
   Serial.println();
   // camera
   camSetup();
@@ -78,11 +87,12 @@ color_t get_color(uint8_t * buf, int offset) {
 }
 
 color_t get_avg_color(uint8_t * buf, int offset) {
-  // avg of 5 lines above and 5 lines below
-  int five_lines_offset = width * 2 * 5;
-  color_t color_above = get_color(buf, offset - five_lines_offset);
-  color_t color_below = get_color(buf, offset + five_lines_offset);
-  color_t avg_color = color_t((color_above.r + color_below.r)/2, (color_above.g + color_below.g)/2, (color_above.b + color_below.b)/2);
+  // average of pixels before and after the point
+  int pixels_offset = 2;
+  color_t color_point = get_color(buf, offset);
+  color_t color_before = get_color(buf, offset - pixels_offset);
+  color_t color_after = get_color(buf, offset + pixels_offset);
+  color_t avg_color = color_t((color_before.r + color_point.r + color_after.r)/3, (color_before.g + color_point.g + color_after.g)/3, (color_before.b + color_point.b + color_after.b)/3);
   return avg_color;
 }
 
@@ -104,7 +114,7 @@ color_t capture_color() {
     return no_color; //black
   }
   //color_t yellow = color_t(31, 63, 28);
-  int center = width * 2*48 + 2*48; // center pixel (9312)
+  int center = width * horizon * 2 + width; // center point
   color_t color = get_avg_color(fb -> buf, center);
   //return the frame buffer back to be reused
   esp_camera_fb_return(fb);
@@ -154,6 +164,39 @@ position_t get_goal_position(color_t goal_color) {
     }
   }
 
+  // debug
+  /*
+  #define B64_CHUNK_RAW 300
+  static uint8_t out[4 * ((B64_CHUNK_RAW + 2) / 3) + 4];
+  Serial.println("===IMAGE START===");
+  Serial.printf("SIZE:%u\n", fb->len);
+  Serial.printf("WIDTH:%u\n", fb->width);
+  Serial.printf("HEIGHT:%u\n", fb->height);
+  // Stream Base64 encoding in chunks
+  size_t i = 0;
+  while (i < fb->len) {
+    size_t chunk = B64_CHUNK_RAW;
+    if (i + chunk > fb->len)
+      chunk = fb->len - i;
+    size_t actual_out = 0;
+    int ret = mbedtls_base64_encode(
+      out,
+      sizeof(out),
+      &actual_out,
+      fb->buf + i,
+      chunk
+    );
+    if (ret != 0) {
+      Serial.printf("Base64 encode error: %d\n", ret);
+      break;
+    }
+    Serial.write(out, actual_out);
+    i += chunk;
+  }
+  Serial.println("\n===IMAGE END===");
+  */
+  // debug end
+
   //return the frame buffer back to be reused
   esp_camera_fb_return(fb);
 
@@ -181,7 +224,17 @@ position_t get_goal_position(color_t goal_color) {
   // debug
   //Serial.printf("left %d right %d center %d goal_color %d %d %d ", left, right, center, goal_color.r, goal_color.g, goal_color.b);
   //Serial.printf("position %c%d\n", position.dir, position.val);
-
+  // debug
+  /*
+  Serial.println("===METRICS START===");
+  Serial.printf("GoalColor %d %d %d\n", goal_color.r, goal_color.g, goal_color.b);
+  Serial.printf("PositionDir %c\n", position.dir);
+  Serial.printf("PositionVal %d\n", position.val);
+  Serial.printf("PositionLeft %d\n", position.left);
+  Serial.printf("PositionRight %d\n", position.right);
+  Serial.printf("PositionCenter %d\n", position.center);
+  Serial.println("===METRICS END===");
+  */
   return position;
 }
 
