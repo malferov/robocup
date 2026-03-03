@@ -29,7 +29,7 @@ const int horizon = 120 * 0.52;
 // 0.51 0.75 of the field
 // 0.52 0.50 of the field
 // 0.53 0.25 of the field
-const int threshold_color = 6; // 5;
+const int threshold_color = 5;
 const int threshold_width = 7;
 const int threshold_border = 3;
 const color_t no_color = color_t(0,0,0); //black
