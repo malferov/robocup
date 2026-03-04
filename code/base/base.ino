@@ -51,6 +51,7 @@ Preferences prefs;
 #define ACPT_DEVIATION 5 //acceptable deviation angle
 #define ACPT_DISTANCE 50 // mm
 #define MIN_SPEED 7
+#define ONE_SPEED 15
 #define MAX_BALL_DEVIATION 10 //degrees
 
 # if BOT_ID == 1
@@ -82,18 +83,24 @@ int ballHeading = 0;  // ahead by default
 int angs[15];         // sensors angles
 
 String Modes[] = {
+  "SEARCH_MAG",
+  "CHASE_HALF",
   "CALIBRATION",
   "GOAL_SEARCH",
   "GOAL_KEEPER",
   "BALL_CHASE",
   "BALL_SEARCH",
   "IR_READ",
-  "DISTANCE_READ"
+  "DISTANCE_READ",
+  "SPEED_1",
+  "SPEED_2",
+  "SPEED_3"
 };
-int mode_len = 7;
+int mode_len = 12;
 int mode_num = 0;
 bool idle = true;
 String mode = Modes[mode_num];
+int max_speed = MIN_SPEED + ONE_SPEED * 1; // 1, 2 or 3
 
 unsigned long button_timer;
 unsigned long move_timer;
@@ -106,6 +113,8 @@ char msg[50] = {0};
 float mag_x_offset = 0;
 float mag_y_offset = 0;
 int magHeading = 0;
+int magChase = 0;
+int magDeviation = 0;
 
 // debug
 unsigned long debug_timer;
@@ -239,6 +248,8 @@ void refreshDisplay() {
     display.setCursor(0, 30);
     display.printf("distance %3d", cam.distance);
     display.setCursor(0, 40);
+    display.printf("mag      %3d", magHeading);
+    display.setCursor(0, 50);
     display.printf("goal      %c%d", cam.goalPosition.dir, cam.goalPosition.deviation);
   } else if (mode == "IR_READ") {
     display.setCursor(0, 20);
@@ -259,7 +270,24 @@ void refreshDisplay() {
   } else if (mode == "CALIBRATION") {
     display.setCursor(0, 20);
     display.printf("mag heading %3d", magHeading);
+  } else if (mode == "SEARCH_MAG") {
+    display.setCursor(0, 20);
+    display.printf("mag chase   %3d", magChase);
+    display.setCursor(0, 30);
+    display.printf("mag heading %3d", magHeading);
+    display.setCursor(0, 40);
+    display.printf("mag dev     %3d", magDeviation);
+  } else if (mode == "CHASE_HALF") {
+    display.setCursor(0, 20);
+    display.printf("heading  %3d", ballHeading);
+    display.setCursor(0, 30);
+    display.printf("distance %3d", cam.distance);
+    display.setCursor(0, 40);
+    display.printf("mag chase   %3d", magChase);
+    display.setCursor(0, 50);
+    display.printf("mag heading %3d", magHeading);
   }
+
   // display the current mode
   display.setCursor(0, 0);
   display.printf("%s", mode);
@@ -311,11 +339,9 @@ bool move_timeout(int speed, int duration) {
 void turn2ball(int deviation) {
   //turnAll(direction, deviation);
   const int duration = 8 * deviation;  // ms per 1 degree
-  const int max_turn_speed = 50;       // cycles
   int speed = MIN_SPEED + 1 * deviation;
-  if (speed > max_turn_speed) {
-    speed = max_turn_speed;
-  }
+  if (speed > max_speed) speed = max_speed;
+
   if (move_timeout(speed, duration)) {
     int Rside = 1;
     int Lside = -1;
@@ -336,8 +362,35 @@ void turn2goal() {
     if (cam.goalPosition.dir == 'L') {
       delta = -delta;
     }
-    int Lside = speed + delta;
     int Rside = speed - delta;
+    int Lside = speed + delta;
+    Serial.printf("speed4:%d:%d:%d:%d:%d\n", Rside, Rside, Lside, Lside, duration);
+  }
+}
+
+void tesTmag(int deviation) {
+  const int duration = 8 * abs(deviation);
+  int speed = MIN_SPEED + 1 * abs(deviation);
+  if (speed > max_speed) speed = max_speed;
+
+  if (move_timeout(speed, duration)) {
+    int Rside = -1;
+    int Lside = 1;
+    if (deviation < 0) {
+      Rside = 1;
+      Lside = -1;
+    }
+    Serial.printf("speed4:%d:%d:%d:%d:%d\n", Rside * speed, Rside * speed, Lside * speed, Lside * speed, duration);
+  }
+}
+
+void turn2mag(int deviation) {
+  int duration = 5 * abs(deviation);
+  int speed = 20;
+  if (move_timeout(speed, duration)) {
+    int delta = deviation * 0.2;
+    int Rside = speed - delta;
+    int Lside = speed + delta;
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", Rside, Rside, Lside, Lside, duration);
   }
 }
@@ -346,10 +399,7 @@ void move2ball(int distance) {
   // dir_move_all:max:min:direction:duration
   // max, min: 0..255
   int speed = MIN_SPEED * 2 + 0.2 * distance;
-  const int max_move_speed = 50;
-  if (speed > max_move_speed) {
-    speed = max_move_speed;
-  }
+  if (speed > max_speed) speed = max_speed;
   const int direction = 0; // [0, 90, 180, 270] degrees
   int duration = 1 * distance;  // ms
   if (duration > 500) {
@@ -370,13 +420,13 @@ void shoot(){
 }
 
 void kick() {
-  int duration = 50;
-  int speed = 255;
+  int duration = 0; //50
+  int speed = 150;  //255
   int pause = 5000;
   if (move_timeout(speed, duration + pause)) {
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, speed, speed, speed, duration);
   }
-  delay(speed + duration + 300); // cmd delay?
+  delay(speed + duration + 700); // cmd delay?
   shoot();
 }
 
@@ -542,12 +592,20 @@ void loop() {
   getCompass();
 
   if (buttonPressed(MODE_BUTTON)) {
-    changeMode();
+    if (idle) changeMode();
   }
   if (buttonPressed(START_BUTTON)) {
     if (idle) {
       idle = false;
       changeMode(mode_num); // run selected mode
+      if (mode == "CHASE_BALL" || mode == "CHASE_HALF" || mode == "SEARCH_MAG") magChase = magHeading;
+      if (mode == "SPEED_1" || mode == "SPEED_2" || mode == "SPEED_3") {
+        int selected_speed = mode_num-8; // 1, 2 or 3
+        max_speed = MIN_SPEED + ONE_SPEED * selected_speed;
+        sprintf(msg, "Speed %d selected", speed);
+        message(msg);
+        idle = true;
+      }
     } else {
       idle = true; // off
     }
@@ -557,8 +615,14 @@ void loop() {
 
   // actions
   if (!idle) {
+
     int deviation = ballHeading;
     if (deviation > 180) deviation = 360 - deviation;
+
+    magDeviation = magChase - magHeading;
+    if (magDeviation > 180) magDeviation -= 360;
+    if (magDeviation < -180) magDeviation += 360;
+
     if (mode == "BALL_SEARCH") {
       turn2ball(deviation);
     } else if (mode == "DISTANCE_READ") {
@@ -570,6 +634,8 @@ void loop() {
         turn2ball(deviation);
       } else if (cam.distance > ACPT_DISTANCE) {
         move2ball(cam.distance);
+      } else if (abs(magDeviation) > ACPT_DEVIATION) {
+        turn2mag(magDeviation);
       } else if (cam.goalPosition.deviation > 5) {
         turn2goal();
       } else {
@@ -591,6 +657,18 @@ void loop() {
       autoCalibrate();
       saveCalibration();
       idle = true;
+    } else if (mode == "SEARCH_MAG") {
+      if (abs(magDeviation) > ACPT_DEVIATION) {
+        tesTmag(magDeviation);
+      }
+    } else if (mode == "CHASE_HALF") {
+      if (deviation > ACPT_DEVIATION) {
+        turn2ball(deviation);
+      } else if (cam.distance > ACPT_DISTANCE) {
+        move2ball(cam.distance);
+      } else {
+        changeMode(0); // search mag
+      }
     }
   }
 
