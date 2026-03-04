@@ -1,5 +1,5 @@
 #define RAMP_MAX 255
-#define MOTOR_TIME 5000 // ms
+#define MOTOR_TIME 15000 // ms
 
 // motors[motor][pin]
 // pin 0 = DIR1
