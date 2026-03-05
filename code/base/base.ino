@@ -5,7 +5,7 @@
 DFRobot_BMM150_I2C bmm150(&Wire1, 0x13);
 Preferences prefs;
 
-#define BOT_ID 2 // or 1
+#define BOT_ID 2 // 1 or 2
 
 #if BOT_ID == 1
 #include <Adafruit_SSD1306.h>
@@ -50,15 +50,16 @@ Preferences prefs;
 
 #define ACPT_DEVIATION 5 //acceptable deviation angle
 #define ACPT_DISTANCE 50 // mm
-#define MIN_SPEED 7
 #define ONE_SPEED 15
 #define MAX_BALL_DEVIATION 10 //degrees
 
 # if BOT_ID == 1
+#define MIN_SPEED 7
 #define WHITE SSD1306_WHITE
 #define BLACK SSD1306_BLACK
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 #else
+#define MIN_SPEED 15
 #define WHITE SH110X_WHITE
 #define BLACK SH110X_BLACK
 Adafruit_SH1106G display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -602,7 +603,7 @@ void loop() {
       if (mode == "SPEED_1" || mode == "SPEED_2" || mode == "SPEED_3") {
         int selected_speed = mode_num-8; // 1, 2 or 3
         max_speed = MIN_SPEED + ONE_SPEED * selected_speed;
-        sprintf(msg, "Speed %d selected", speed);
+        sprintf(msg, "Speed %d selected", selected_speed);
         message(msg);
         idle = true;
       }
@@ -643,13 +644,17 @@ void loop() {
       }
     //robot 2
     } else if (mode == "GOAL_KEEPER") {
-      int speed = 50;
-      int duration = 25;
-      if (move_timeout(speed, duration)) {
-        if (ballHeading > MAX_BALL_DEVIATION && ballHeading < 180) {
-          Serial.printf("speed4:%d:%d:%d:%d:%d\n", -speed, speed-5, -speed, speed, duration);
-        } else if (ballHeading < 360-MAX_BALL_DEVIATION && ballHeading > 180) {
-          Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, -speed+5, speed, -speed, duration);
+      int deviation = ballHeading;
+      if (deviation > 180) deviation -= 360;
+      if (abs(deviation) > MAX_BALL_DEVIATION) {
+        int speed = deviation * 0.05 * max_speed;
+        if (speed > max_speed) speed = max_speed;
+        if (speed < -max_speed) speed = -max_speed;
+        int duration = abs(deviation) * 10;
+        if (move_timeout(abs(speed), duration)) {
+          int corr = 8;
+          if (speed < 0) corr = -corr;
+          Serial.printf("speed4:%d:%d:%d:%d:%d\n", -speed-corr, speed+corr, -speed-corr, speed+corr, duration);
         }
       }
     } else if (mode == "CALIBRATION") {
