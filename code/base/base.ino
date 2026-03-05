@@ -1,5 +1,9 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
+#include "DFRobot_BMM150.h"
+#include <Preferences.h>
+DFRobot_BMM150_I2C bmm150(&Wire1, 0x13);
+Preferences prefs;
 
 #define BOT_ID 2 // or 1
 
@@ -47,6 +51,7 @@
 #define ACPT_DEVIATION 5 //acceptable deviation angle
 #define ACPT_DISTANCE 50 // mm
 #define MIN_SPEED 7
+#define ONE_SPEED 15
 #define MAX_BALL_DEVIATION 10 //degrees
 
 # if BOT_ID == 1
@@ -77,17 +82,39 @@ CAMT cam = CAMT(zeroPosition, INIT_DISTANCE);
 int ballHeading = 0;  // ahead by default
 int angs[15];         // sensors angles
 
-String Modes[] = {"GOAL_SEARCH","GOAL_KEEPER","BALL_CHASE","BALL_SEARCH","IR_READ","DISTANCE_READ"};
-int mode_len = 6;
+String Modes[] = {
+  "SEARCH_MAG",
+  "CHASE_HALF",
+  "CALIBRATION",
+  "GOAL_SEARCH",
+  "GOAL_KEEPER",
+  "BALL_CHASE",
+  "BALL_SEARCH",
+  "IR_READ",
+  "DISTANCE_READ",
+  "SPEED_1",
+  "SPEED_2",
+  "SPEED_3"
+};
+int mode_len = 12;
 int mode_num = 0;
 bool idle = true;
 String mode = Modes[mode_num];
+int max_speed = MIN_SPEED + ONE_SPEED * 1; // 1, 2 or 3
 
 unsigned long button_timer;
 unsigned long move_timer;
 unsigned long shoot_timer;
 unsigned long distance_reset_timer;
 bool need_reset = false;
+char msg[50] = {0};
+
+#define CALIBRATION_TIME 15000
+float mag_x_offset = 0;
+float mag_y_offset = 0;
+int magHeading = 0;
+int magChase = 0;
+int magDeviation = 0;
 
 // debug
 unsigned long debug_timer;
@@ -221,6 +248,8 @@ void refreshDisplay() {
     display.setCursor(0, 30);
     display.printf("distance %3d", cam.distance);
     display.setCursor(0, 40);
+    display.printf("mag      %3d", magHeading);
+    display.setCursor(0, 50);
     display.printf("goal      %c%d", cam.goalPosition.dir, cam.goalPosition.deviation);
   } else if (mode == "IR_READ") {
     display.setCursor(0, 20);
@@ -238,7 +267,27 @@ void refreshDisplay() {
     }
     display.setCursor(0, 40);
     display.print(ballHeading);
+  } else if (mode == "CALIBRATION") {
+    display.setCursor(0, 20);
+    display.printf("mag heading %3d", magHeading);
+  } else if (mode == "SEARCH_MAG") {
+    display.setCursor(0, 20);
+    display.printf("mag chase   %3d", magChase);
+    display.setCursor(0, 30);
+    display.printf("mag heading %3d", magHeading);
+    display.setCursor(0, 40);
+    display.printf("mag dev     %3d", magDeviation);
+  } else if (mode == "CHASE_HALF") {
+    display.setCursor(0, 20);
+    display.printf("heading  %3d", ballHeading);
+    display.setCursor(0, 30);
+    display.printf("distance %3d", cam.distance);
+    display.setCursor(0, 40);
+    display.printf("mag chase   %3d", magChase);
+    display.setCursor(0, 50);
+    display.printf("mag heading %3d", magHeading);
   }
+
   // display the current mode
   display.setCursor(0, 0);
   display.printf("%s", mode);
@@ -290,11 +339,9 @@ bool move_timeout(int speed, int duration) {
 void turn2ball(int deviation) {
   //turnAll(direction, deviation);
   const int duration = 8 * deviation;  // ms per 1 degree
-  const int max_turn_speed = 50;       // cycles
   int speed = MIN_SPEED + 1 * deviation;
-  if (speed > max_turn_speed) {
-    speed = max_turn_speed;
-  }
+  if (speed > max_speed) speed = max_speed;
+
   if (move_timeout(speed, duration)) {
     int Rside = 1;
     int Lside = -1;
@@ -315,8 +362,35 @@ void turn2goal() {
     if (cam.goalPosition.dir == 'L') {
       delta = -delta;
     }
-    int Lside = speed + delta;
     int Rside = speed - delta;
+    int Lside = speed + delta;
+    Serial.printf("speed4:%d:%d:%d:%d:%d\n", Rside, Rside, Lside, Lside, duration);
+  }
+}
+
+void tesTmag(int deviation) {
+  const int duration = 8 * abs(deviation);
+  int speed = MIN_SPEED + 1 * abs(deviation);
+  if (speed > max_speed) speed = max_speed;
+
+  if (move_timeout(speed, duration)) {
+    int Rside = -1;
+    int Lside = 1;
+    if (deviation < 0) {
+      Rside = 1;
+      Lside = -1;
+    }
+    Serial.printf("speed4:%d:%d:%d:%d:%d\n", Rside * speed, Rside * speed, Lside * speed, Lside * speed, duration);
+  }
+}
+
+void turn2mag(int deviation) {
+  int duration = 5 * abs(deviation);
+  int speed = MIN_SPEED + ONE_SPEED;
+  if (move_timeout(speed, duration)) {
+    int delta = deviation * 0.2;
+    int Rside = speed - delta;
+    int Lside = speed + delta;
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", Rside, Rside, Lside, Lside, duration);
   }
 }
@@ -324,15 +398,12 @@ void turn2goal() {
 void move2ball(int distance) {
   // dir_move_all:max:min:direction:duration
   // max, min: 0..255
-  int speed = MIN_SPEED * 2 + 0.2 * distance;
-  const int max_move_speed = 50;
-  if (speed > max_move_speed) {
-    speed = max_move_speed;
-  }
-  const int direction = 0; // [0, 90, 180, 270] degrees
+  int speed = MIN_SPEED * 2 + 0.4 * distance; //0.2
+  if (speed > max_speed) speed = max_speed;
+  const int direction = 0;
   int duration = 1 * distance;  // ms
-  if (duration > 500) {
-    duration = 500;
+  if (duration > 800) { //500
+    duration = 800;
   }
   if (move_timeout(speed, duration)) {
     Serial.printf("dir_move_all:%d:%d:%d:%d\n", speed, MIN_SPEED, direction, duration);
@@ -349,34 +420,105 @@ void shoot(){
 }
 
 void kick() {
-  int duration = 50;
-  int speed = 255;
+  int duration = 0; //50
+  int speed = 150;  //255
   int pause = 5000;
   if (move_timeout(speed, duration + pause)) {
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, speed, speed, speed, duration);
   }
-  delay(speed + duration + 300); // cmd delay?
+  delay(speed + duration + 700); // cmd delay?
   shoot();
 }
 
+void getCompass() {
+
+  sBmm150MagData_t magData = bmm150.getGeomagneticData();
+
+  float x = magData.x - mag_x_offset;
+  float y = magData.y - mag_y_offset;
+
+  int heading = atan2(y, x) * 180.0 / PI;
+
+  int delta = heading - magHeading;
+  if (delta > 180) delta -= 360;
+  if (delta < -180) delta += 360;
+
+  // Smooth heading
+  heading += delta * 0.1;
+
+  // wrap to 0–360
+  if (heading < 0) heading += 360;
+  if (heading >= 360) heading -= 360;
+
+  heading = 360 - heading;
+  magHeading = heading;
+}
+
+void message(char m[]) {
+  display.clearDisplay();
+  display.setCursor(0, 20);
+  display.print(m);
+  display.display();
+  delay(1000);
+}
+
+void autoCalibrate() {
+
+  float x_min = 9999, x_max = -9999;
+  float y_min = 9999, y_max = -9999;
+
+  unsigned long startTime = millis();
+  message("Rotate robot slowly..");
+  int speed = 15;
+
+  if (move_timeout(speed, CALIBRATION_TIME)) {
+    Serial.printf("speed4:%d:%d:%d:%d:%d\n", -speed, -speed, speed, speed, CALIBRATION_TIME);
+  }
+
+  while (millis() - startTime < CALIBRATION_TIME) {
+
+    sBmm150MagData_t magData = bmm150.getGeomagneticData();
+
+    float x = magData.x;
+    float y = magData.y;
+
+    if (x < x_min) x_min = x;
+    if (x > x_max) x_max = x;
+    if (y < y_min) y_min = y;
+    if (y > y_max) y_max = y;
+
+    delay(100);
+  }
+
+  mag_x_offset = (x_max + x_min) / 2.0;
+  mag_y_offset = (y_max + y_min) / 2.0;
+  message("Calibration complete");
+}
+
+void saveCalibration() {
+  prefs.putFloat("x_off", mag_x_offset);
+  prefs.putFloat("y_off", mag_y_offset);
+  prefs.putBool("calibrated", true);
+  message("Calibration saved");
+}
+
 void setup() {
+
   Wire.begin(SDA_PIN, SCL_PIN);
+
   #if BOT_ID == 1
     display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   #else
     display.begin(0x3C);
   #endif
-  display.setRotation(2);
-  display.clearDisplay();
+
   // Size 1: 6x8 pixel area
   // Size 2: 12x16 pixels
-  display.setTextSize(2);
+  // display.setTextSize(2);
+  display.setRotation(2);
   display.setTextColor(WHITE, BLACK);
-  display.setCursor(0, 20);  // Move text to new origin
-  display.printf("CoreX bot%d", BOT_ID);
-  display.display();
-  delay(1000);
-  display.setTextSize(1); // default size
+  sprintf(msg, "CoreX bot%d", BOT_ID);
+  message(msg);
 
   Serial.begin(9600, SERIAL_8N1, SERIAL_RX, SERIAL_TX);
   Serial.println();
@@ -402,6 +544,41 @@ void setup() {
   }
   // init cam request
   Serial2.write("get_pos\n");
+
+  // compass
+  #if BOT_ID == 1
+  #define W2_SDA 13
+  #else
+  #define W2_SDA 12
+  #endif
+  #define W2_SCL 14
+
+  Wire1.begin(W2_SDA, W2_SCL);
+  if (bmm150.begin() != BMM150_OK) {
+    message("BMM150 init failed!");
+  }
+
+  bmm150.setOperationMode(BMM150_POWERMODE_NORMAL);
+  bmm150.setPresetMode(BMM150_PRESETMODE_HIGHACCURACY);
+  bmm150.setMeasurementXYZ(MEASUREMENT_X_ENABLE, MEASUREMENT_Y_ENABLE, MEASUREMENT_Z_DISABLE);
+
+  prefs.begin("compass", false);
+
+  if (prefs.getBool("calibrated", false)) {
+    // Load stored offsets
+    mag_x_offset = prefs.getFloat("x_off", 0);
+    mag_y_offset = prefs.getFloat("y_off", 0);
+    message("Calibration loaded");
+    sprintf(msg, "x offset: %.2f", mag_x_offset);
+    message(msg);
+    sprintf(msg, "y offset: %.2f", mag_y_offset);
+    message(msg);
+  } else {
+    message("No calibration found.");
+    message("Auto calibration...");
+    autoCalibrate();
+    saveCalibration();
+  }
 }
 
 void loop() {
@@ -412,26 +589,40 @@ void loop() {
   }
 
   calcBallHeading();
+  getCompass();
 
   if (buttonPressed(MODE_BUTTON)) {
-    changeMode();
+    if (idle) changeMode();
   }
   if (buttonPressed(START_BUTTON)) {
     if (idle) {
       idle = false;
       changeMode(mode_num); // run selected mode
+      if (mode == "CHASE_BALL" || mode == "CHASE_HALF" || mode == "SEARCH_MAG") magChase = magHeading;
+      if (mode == "SPEED_1" || mode == "SPEED_2" || mode == "SPEED_3") {
+        int selected_speed = mode_num-8; // 1, 2 or 3
+        max_speed = MIN_SPEED + ONE_SPEED * selected_speed;
+        sprintf(msg, "Speed %d selected", speed);
+        message(msg);
+        idle = true;
+      }
     } else {
       idle = true; // off
     }
   }
 
   refreshDisplay();
+
   // actions
   if (!idle) {
+
     int deviation = ballHeading;
-    if (deviation > 180) {
-      deviation = 360 - deviation;
-    }
+    if (deviation > 180) deviation = 360 - deviation;
+
+    magDeviation = magChase - magHeading;
+    if (magDeviation > 180) magDeviation -= 360;
+    if (magDeviation < -180) magDeviation += 360;
+
     if (mode == "BALL_SEARCH") {
       turn2ball(deviation);
     } else if (mode == "DISTANCE_READ") {
@@ -443,6 +634,8 @@ void loop() {
         turn2ball(deviation);
       } else if (cam.distance > ACPT_DISTANCE) {
         move2ball(cam.distance);
+      } else if (abs(magDeviation) > ACPT_DEVIATION) {
+        turn2mag(magDeviation);
       } else if (cam.goalPosition.deviation > 5) {
         turn2goal();
       } else {
@@ -458,6 +651,23 @@ void loop() {
         } else if (ballHeading < 360-MAX_BALL_DEVIATION && ballHeading > 180) {
           Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, -speed+5, speed, -speed, duration);
         }
+      }
+    } else if (mode == "CALIBRATION") {
+      message("Auto calibration...");
+      autoCalibrate();
+      saveCalibration();
+      idle = true;
+    } else if (mode == "SEARCH_MAG") {
+      if (abs(magDeviation) > ACPT_DEVIATION) {
+        tesTmag(magDeviation);
+      }
+    } else if (mode == "CHASE_HALF") {
+      if (deviation > ACPT_DEVIATION) {
+        turn2ball(deviation);
+      } else if (cam.distance > ACPT_DISTANCE) {
+        move2ball(cam.distance);
+      } else {
+        changeMode(0); // search mag
       }
     }
   }
