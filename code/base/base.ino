@@ -1,7 +1,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 
-#define BOT_ID 1 // or 2
+#define BOT_ID 2 // or 1
 
 #if BOT_ID == 1
 #include <Adafruit_SSD1306.h>
@@ -454,9 +454,9 @@ void loop() {
       int duration = 25;
       if (move_timeout(speed, duration)) {
         if (ballHeading > MAX_BALL_DEVIATION && ballHeading < 180) {
-          Serial.printf("speed4:%d:%d:%d:%d:%d\n", -speed, speed, -speed, speed, duration);
+          Serial.printf("speed4:%d:%d:%d:%d:%d\n", -speed, speed-5, -speed, speed, duration);
         } else if (ballHeading < 360-MAX_BALL_DEVIATION && ballHeading > 180) {
-          Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, -speed, speed, -speed, duration);
+          Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, -speed+5, speed, -speed, duration);
         }
       }
     }
