@@ -4050,6 +4050,16 @@
 	)
 	(wire
 		(pts
+			(xy 171.45 66.04) (xy 171.45 68.58)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "09be8c4c-00bc-46a8-9194-c9cd8b28f9b4")
+	)
+	(wire
+		(pts
 			(xy 73.66 54.61) (xy 69.85 54.61)
 		)
 		(stroke
@@ -4087,16 +4097,6 @@
 			(type default)
 		)
 		(uuid "0a94df75-8e40-4306-b050-a0e2dd8e97c5")
-	)
-	(wire
-		(pts
-			(xy 114.3 53.34) (xy 129.54 53.34)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0bdada41-319e-45ef-95ee-da2252b00aad")
 	)
 	(wire
 		(pts
@@ -4460,6 +4460,16 @@
 	)
 	(wire
 		(pts
+			(xy 125.73 53.34) (xy 125.73 43.18)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "381ac218-5bc5-492a-9bba-4ef9584f0476")
+	)
+	(wire
+		(pts
 			(xy 125.73 68.58) (xy 129.54 68.58)
 		)
 		(stroke
@@ -4790,6 +4800,16 @@
 	)
 	(wire
 		(pts
+			(xy 125.73 43.18) (xy 143.51 43.18)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5978c2c9-147f-4ff3-bae3-4de68d47cceb")
+	)
+	(wire
+		(pts
 			(xy 90.17 80.01) (xy 90.17 81.28)
 		)
 		(stroke
@@ -5007,6 +5027,16 @@
 			(type default)
 		)
 		(uuid "715b334a-ee14-4c0f-a5cb-d5b24af2573a")
+	)
+	(wire
+		(pts
+			(xy 114.3 53.34) (xy 125.73 53.34)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "725d04b6-5f46-4fdf-8f90-7a4dfaa529e4")
 	)
 	(wire
 		(pts
@@ -5390,6 +5420,16 @@
 	)
 	(wire
 		(pts
+			(xy 143.51 43.18) (xy 143.51 58.42)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9db0d838-4056-4621-801f-a9bb05a572b0")
+	)
+	(wire
+		(pts
 			(xy 73.66 66.04) (xy 64.77 66.04)
 		)
 		(stroke
@@ -5770,7 +5810,7 @@
 	)
 	(wire
 		(pts
-			(xy 148.59 60.96) (xy 160.02 60.96)
+			(xy 148.59 60.96) (xy 157.48 60.96)
 		)
 		(stroke
 			(width 0)
@@ -5990,7 +6030,7 @@
 	)
 	(wire
 		(pts
-			(xy 160.02 60.96) (xy 160.02 62.23)
+			(xy 157.48 60.96) (xy 157.48 62.23)
 		)
 		(stroke
 			(width 0)
@@ -6000,7 +6040,7 @@
 	)
 	(wire
 		(pts
-			(xy 165.1 68.58) (xy 171.45 68.58)
+			(xy 167.64 66.04) (xy 171.45 66.04)
 		)
 		(stroke
 			(width 0)
@@ -6247,6 +6287,16 @@
 			(type default)
 		)
 		(uuid "fa78788b-42c2-4e6c-9e58-21c292c6c2cf")
+	)
+	(wire
+		(pts
+			(xy 143.51 58.42) (xy 148.59 58.42)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fd68dff9-8573-409e-a959-44d091eb1688")
 	)
 	(wire
 		(pts
@@ -6607,7 +6657,7 @@
 	)
 	(symbol
 		(lib_id "power:+3.3V")
-		(at 165.1 68.58 0)
+		(at 167.64 66.04 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6616,7 +6666,7 @@
 		(fields_autoplaced yes)
 		(uuid "1950709a-a2fc-4495-917a-6d27a07f5d24")
 		(property "Reference" "#PWR010"
-			(at 165.1 72.39 0)
+			(at 167.64 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6625,7 +6675,7 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 165.1 63.5 0)
+			(at 167.64 60.96 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6633,7 +6683,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 165.1 68.58 0)
+			(at 167.64 66.04 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6642,7 +6692,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 165.1 68.58 0)
+			(at 167.64 66.04 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6651,7 +6701,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 165.1 68.58 0)
+			(at 167.64 66.04 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6818,10 +6868,9 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "2c7c62b3-e989-4c29-9a1b-3614cd907d65")
 		(property "Reference" "J3"
-			(at 154.94 69.8499 0)
+			(at 145.288 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8254,7 +8303,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 160.02 62.23 0)
+		(at 157.48 62.23 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -8263,7 +8312,7 @@
 		(fields_autoplaced yes)
 		(uuid "831b5d23-11aa-48d0-8b10-7654a5598908")
 		(property "Reference" "#PWR02"
-			(at 160.02 68.58 0)
+			(at 157.48 68.58 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8272,7 +8321,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 160.02 67.31 0)
+			(at 157.48 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8280,7 +8329,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 160.02 62.23 0)
+			(at 157.48 62.23 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8289,7 +8338,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 160.02 62.23 0)
+			(at 157.48 62.23 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8298,7 +8347,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 160.02 62.23 0)
+			(at 157.48 62.23 0)
 			(effects
 				(font
 					(size 1.27 1.27)
