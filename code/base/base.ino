@@ -386,7 +386,7 @@ void tesTmag(int deviation) {
 
 void turn2mag(int deviation) {
   int duration = 5 * abs(deviation);
-  int speed = 20;
+  int speed = MIN_SPEED + ONE_SPEED;
   if (move_timeout(speed, duration)) {
     int delta = deviation * 0.2;
     int Rside = speed - delta;
@@ -398,12 +398,12 @@ void turn2mag(int deviation) {
 void move2ball(int distance) {
   // dir_move_all:max:min:direction:duration
   // max, min: 0..255
-  int speed = MIN_SPEED * 2 + 0.2 * distance;
+  int speed = MIN_SPEED * 2 + 0.4 * distance; //0.2
   if (speed > max_speed) speed = max_speed;
-  const int direction = 0; // [0, 90, 180, 270] degrees
+  const int direction = 0;
   int duration = 1 * distance;  // ms
-  if (duration > 500) {
-    duration = 500;
+  if (duration > 800) { //500
+    duration = 800;
   }
   if (move_timeout(speed, duration)) {
     Serial.printf("dir_move_all:%d:%d:%d:%d\n", speed, MIN_SPEED, direction, duration);
