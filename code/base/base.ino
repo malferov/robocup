@@ -5,7 +5,7 @@
 DFRobot_BMM150_I2C bmm150(&Wire1, 0x13);
 Preferences prefs;
 
-#define BOT_ID 2 // 1 or 2
+#define BOT_ID 1 // 1 or 2
 
 #if BOT_ID == 1
 #include <Adafruit_SSD1306.h>
@@ -18,6 +18,9 @@ Preferences prefs;
 #define MODE_BUTTON 19
 #define START_BUTTON 23
 #define INIT_DISTANCE 0
+#define LINE_LEFT 34
+#define LINE_CENTER 36
+#define LINE_RIGHT 39
 #else
 #include <Adafruit_SH110X.h>
 #define MUX_SIG 13
@@ -28,6 +31,9 @@ Preferences prefs;
 #define MODE_BUTTON 26
 #define START_BUTTON 23
 #define INIT_DISTANCE 200 // fixed distance for bot2
+#define LINE_LEFT 32
+#define LINE_CENTER 33
+#define LINE_RIGHT 25
 #endif
 
 #define SCREEN_WIDTH 128
@@ -42,6 +48,7 @@ Preferences prefs;
 #define SERIAL2_TX 17
 
 #define ANALOG_MAX 4095
+#define LINE_THRESHOLD 4050
 #define SEGMENT_ANGLE 24
 
 #define PRESS_DELAY 500   // ms
@@ -86,6 +93,7 @@ int angs[15];         // sensors angles
 String Modes[] = {
   "SEARCH_MAG",
   "CHASE_HALF",
+  "LINE_ACTIVE",
   "CALIBRATION",
   "GOAL_SEARCH",
   "GOAL_KEEPER",
@@ -97,7 +105,7 @@ String Modes[] = {
   "SPEED_2",
   "SPEED_3"
 };
-int mode_len = 12;
+int mode_len = 13;
 int mode_num = 0;
 bool idle = true;
 String mode = Modes[mode_num];
@@ -116,6 +124,9 @@ float mag_y_offset = 0;
 int magHeading = 0;
 int magChase = 0;
 int magDeviation = 0;
+bool line_active = false;
+bool line_right = false;
+bool line_left = false;
 
 // debug
 unsigned long debug_timer;
@@ -503,6 +514,15 @@ void saveCalibration() {
   message("Calibration saved");
 }
 
+void getLine() {
+  line_right = false;
+  int val = analogRead(LINE_RIGHT);
+  if (val > LINE_THRESHOLD) line_right = true;
+  line_left = false;
+  val = analogRead(LINE_LEFT);
+  if (val > LINE_THRESHOLD) line_left = true;
+}
+
 void setup() {
 
   Wire.begin(SDA_PIN, SCL_PIN);
@@ -591,6 +611,7 @@ void loop() {
 
   calcBallHeading();
   getCompass();
+  if (line_active) getLine();
 
   if (buttonPressed(MODE_BUTTON)) {
     if (idle) changeMode();
@@ -600,11 +621,22 @@ void loop() {
       idle = false;
       changeMode(mode_num); // run selected mode
       if (mode == "CHASE_BALL" || mode == "CHASE_HALF" || mode == "SEARCH_MAG") magChase = magHeading;
-      if (mode == "SPEED_1" || mode == "SPEED_2" || mode == "SPEED_3") {
+      else if (mode == "SPEED_1" || mode == "SPEED_2" || mode == "SPEED_3") {
         int selected_speed = mode_num-8; // 1, 2 or 3
         max_speed = MIN_SPEED + ONE_SPEED * selected_speed;
         sprintf(msg, "Speed %d selected", selected_speed);
         message(msg);
+        idle = true;
+      } else if (mode == "LINE_ACTIVE") {
+        if (line_active) {
+          line_active = false;
+          line_right = false;
+          line_left = false;
+          message("Line deactivated");
+        } else {
+          line_active = true;
+          message("Line ***active***");
+        }
         idle = true;
       }
     } else {
@@ -624,55 +656,64 @@ void loop() {
     if (magDeviation > 180) magDeviation -= 360;
     if (magDeviation < -180) magDeviation += 360;
 
-    if (mode == "BALL_SEARCH") {
-      turn2ball(deviation);
-    } else if (mode == "DISTANCE_READ") {
-      move2ball(cam.distance);
-    } else if (mode == "GOAL_SEARCH") {
-      turn2goal();
-    } else if (mode == "BALL_CHASE") {
-      if (deviation > ACPT_DEVIATION) {
+    if (line_right || line_left) {
+      int duration = 100;
+      if (move_timeout(max_speed, duration)) {
+        // move back
+        Serial.printf("speed4:%d:%d:%d:%d:%d\n", -max_speed, -max_speed, -max_speed, -max_speed, duration);
+      }
+    } else {
+
+      if (mode == "BALL_SEARCH") {
         turn2ball(deviation);
-      } else if (cam.distance > ACPT_DISTANCE) {
+      } else if (mode == "DISTANCE_READ") {
         move2ball(cam.distance);
-      } else if (abs(magDeviation) > ACPT_DEVIATION) {
-        turn2mag(magDeviation);
-      } else if (cam.goalPosition.deviation > 5) {
+      } else if (mode == "GOAL_SEARCH") {
         turn2goal();
-      } else {
-        kick();
-      }
-    //robot 2
-    } else if (mode == "GOAL_KEEPER") {
-      int deviation = ballHeading;
-      if (deviation > 180) deviation -= 360;
-      if (abs(deviation) > MAX_BALL_DEVIATION) {
-        int speed = deviation * 0.05 * max_speed;
-        if (speed > max_speed) speed = max_speed;
-        if (speed < -max_speed) speed = -max_speed;
-        int duration = abs(deviation) * 10;
-        if (move_timeout(abs(speed), duration)) {
-          int corr = 8;
-          if (speed < 0) corr = -corr;
-          Serial.printf("speed4:%d:%d:%d:%d:%d\n", -speed-corr, speed+corr, -speed-corr, speed+corr, duration);
+      } else if (mode == "BALL_CHASE") {
+        if (deviation > ACPT_DEVIATION) {
+          turn2ball(deviation);
+        } else if (cam.distance > ACPT_DISTANCE) {
+          move2ball(cam.distance);
+        } else if (abs(magDeviation) > ACPT_DEVIATION) {
+          turn2mag(magDeviation);
+        } else if (cam.goalPosition.deviation > 5) {
+          turn2goal();
+        } else {
+          kick();
         }
-      }
-    } else if (mode == "CALIBRATION") {
-      message("Auto calibration...");
-      autoCalibrate();
-      saveCalibration();
-      idle = true;
-    } else if (mode == "SEARCH_MAG") {
-      if (abs(magDeviation) > ACPT_DEVIATION) {
-        tesTmag(magDeviation);
-      }
-    } else if (mode == "CHASE_HALF") {
-      if (deviation > ACPT_DEVIATION) {
-        turn2ball(deviation);
-      } else if (cam.distance > ACPT_DISTANCE) {
-        move2ball(cam.distance);
-      } else {
-        changeMode(0); // search mag
+      //robot 2
+      } else if (mode == "GOAL_KEEPER") {
+        int deviation = ballHeading;
+        if (deviation > 180) deviation -= 360;
+        if (abs(deviation) > MAX_BALL_DEVIATION) {
+          int speed = deviation * 0.05 * max_speed;
+          if (speed > max_speed) speed = max_speed;
+          if (speed < -max_speed) speed = -max_speed;
+          int duration = abs(deviation) * 10;
+          if (move_timeout(abs(speed), duration)) {
+            int corr = 8;
+            if (speed < 0) corr = -corr;
+            Serial.printf("speed4:%d:%d:%d:%d:%d\n", -speed-corr, speed+corr, -speed-corr, speed+corr, duration);
+          }
+        }
+      } else if (mode == "CALIBRATION") {
+        message("Auto calibration...");
+        autoCalibrate();
+        saveCalibration();
+        idle = true;
+      } else if (mode == "SEARCH_MAG") {
+        if (abs(magDeviation) > ACPT_DEVIATION) {
+          tesTmag(magDeviation);
+        }
+      } else if (mode == "CHASE_HALF") {
+        if (deviation > ACPT_DEVIATION) {
+          turn2ball(deviation);
+        } else if (cam.distance > ACPT_DISTANCE) {
+          move2ball(cam.distance);
+        } else {
+          changeMode(0); // search mag
+        }
       }
     }
   }
