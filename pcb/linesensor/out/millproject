@@ -4,7 +4,7 @@ metric = true
 metricoutput = true
 nog64 = true
 nom6 = true
-zchange = 2.0mm
+zchange = 5.0mm
 zsafe = 2.0mm
 
 front = linesensor-F_Cu.gbr
@@ -17,15 +17,15 @@ outline-output = linesensor-Edge_Cuts.nc
 # milling
 
 mill-diameters = 0.5mm
-mill-infeed = 0.04mm
-zwork = -0.04mm
+mill-infeed = 0.3mm
+zwork = -0.3mm
 
 mill-feed = 100mm/min
 mill-speed = 3000rpm
 
 # drilling
 
-drill-feed = 40mm/min
+drill-feed = 60mm/min
 drill-side = front
 drill-speed = 3000rpm
 drills-available = 0.8mm
@@ -34,7 +34,7 @@ zdrill = -1.4mm
 
 # cutting
 
-cut-feed = 100mm/min
+cut-feed = 200mm/min
 cut-infeed = 0.2mm
 cut-side = front
 cut-speed = 3000rpm
