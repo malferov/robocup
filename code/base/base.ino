@@ -5,7 +5,7 @@
 DFRobot_BMM150_I2C bmm150(&Wire1, 0x13);
 Preferences prefs;
 
-#define BOT_ID 1 // 1 or 2
+#define BOT_ID 2 // 1 or 2
 
 #if BOT_ID == 1
 #include <Adafruit_SSD1306.h>
@@ -725,6 +725,7 @@ void loop() {
           int duration = abs(ballDeviation) * 10;
           if (move_timeout(abs(speed), duration)) {
             int corr = 0.1 * speed;
+            if (ballDeviation < 0 ) corr = corr * 0.5; // left compensation
             Serial.printf("speed4:%d:%d:%d:%d:%d\n", -(speed+corr), speed-corr, -(speed-corr), speed+corr, duration);
           }
         }
