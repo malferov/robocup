@@ -5,7 +5,7 @@
 DFRobot_BMM150_I2C bmm150(&Wire1, 0x13);
 Preferences prefs;
 
-#define BOT_ID 2 // 1 or 2
+#define BOT_ID 1 // 1 or 2
 
 #if BOT_ID == 1
 #include <Adafruit_SSD1306.h>
@@ -55,7 +55,8 @@ Preferences prefs;
 #define SHOOT_DELAY 1000  // ms
 #define EXTRA_CORR 0
 
-#define ACPT_DEVIATION 8 //acceptable deviation angle
+#define ACPT_BALLDEVIATION 8 //acceptable ball deviation angle
+#define ACPT_MAGDEVIATION 10 //acceptable magnetic deviation angle
 #define ACPT_DISTANCE 50 // mm
 #define ONE_SPEED 15
 #define MAX_BALL_DEVIATION 10 //degrees
@@ -99,6 +100,7 @@ String Modes[] = {
   "GOAL_KEEPER",
   "BALL_CHASE",
   "BALL_HOOK",
+  "BALL_ROUND",
   "BALL_SEARCH",
   "CALIBRATION",
   "LINE_ACTIVE",
@@ -106,7 +108,7 @@ String Modes[] = {
   "SPEED_2",
   "SPEED_3"
 };
-int mode_len = 12;
+int mode_len = 13;
 int mode_num = 0;
 bool idle = true;
 String mode = Modes[mode_num];
@@ -255,7 +257,7 @@ void refreshDisplay() {
     int difference = cam.goalPosition.right - cam.goalPosition.left;
     display.drawRect((SCREEN_WIDTH - difference) / 2, (SCREEN_HEIGHT - 30) / 2, difference, 30, WHITE);
     display.fillRect(cam.goalPosition.center - 5, (SCREEN_HEIGHT - 50) / 2, 10, 50, WHITE);
-  } else if (mode == "BALL_CHASE" || mode == "BALL_HOOK") {
+  } else if (mode == "BALL_CHASE" || mode == "BALL_HOOK" || mode == "BALL_ROUND") {
     display.setCursor(0, 20);
     display.printf("heading  %3d", ballHeading);
     display.setCursor(0, 30);
@@ -350,7 +352,7 @@ bool move_timeout(int speed, int duration) {
 void turn2ball(int deviation) {
   const int duration = 8 * abs(deviation);  // ms per 1 degree
   int speed = MIN_SPEED + 1 * abs(deviation);
-  if (speed > max_speed) speed = max_speed;
+  if (speed > MIN_SPEED + ONE_SPEED) speed = MIN_SPEED + ONE_SPEED;
 
   if (move_timeout(speed, duration)) {
     int Rside = -1;
@@ -429,6 +431,23 @@ void turnHook (int deviation) {
   kick();
 }
 
+void ballRound (int deviation) {
+  const int duration = abs(deviation) * 20;
+  const int speed = max_speed * 1.5; // round vs base speed
+
+  if (move_timeout(speed, duration)) {
+    int Fside = 0;//speed - curve;
+    int Bside = speed;// + curve;
+    if (deviation < 0) {
+      Bside = -Bside;
+    }
+    Serial.printf("speed4:%d:%d:%d:%d:%d\n", Fside, -Bside, Bside, Fside, duration);
+  }
+  //delay(speed*2 + duration);
+  //shoot();
+  //kick();
+}
+
 void move2ball(int distance) {
   // dir_move_all:max:min:direction:duration
   // max, min: 0..255
@@ -456,13 +475,13 @@ void shoot(){
 
 void kick() {
   int duration = 0; //50
-  int speed = 150;  //255
+  int speed = 30;  //150
   int pause = 5000;
   if (move_timeout(speed, duration + pause)) {
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, speed, speed, speed, duration);
   }
   delay(speed*2 + duration); // cmd delay?
-  shoot();
+  //shoot();
 }
 
 void getCompass() {
@@ -504,7 +523,7 @@ void autoCalibrate() {
 
   unsigned long startTime = millis();
   message("Rotate robot slowly..");
-  int speed = 15;
+  int speed = MIN_SPEED + ONE_SPEED;
 
   if (move_timeout(speed, CALIBRATION_TIME)) {
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", -speed, -speed, speed, speed, CALIBRATION_TIME);
@@ -612,11 +631,11 @@ void setup() {
     // Load stored offsets
     mag_x_offset = prefs.getFloat("x_off", 0);
     mag_y_offset = prefs.getFloat("y_off", 0);
-    message("Calibration loaded");
+    /*message("Calibration loaded");
     sprintf(msg, "x offset: %.2f", mag_x_offset);
     message(msg);
     sprintf(msg, "y offset: %.2f", mag_y_offset);
-    message(msg);
+    message(msg);*/
   } else {
     message("No calibration found.");
     message("Auto calibration...");
@@ -696,26 +715,29 @@ void loop() {
       } else if (mode == "GOAL_SEARCH") {
         turn2goal();
       } else if (mode == "BALL_CHASE") {
-        if (abs(ballDeviation) > ACPT_DEVIATION) {
+        if (abs(ballDeviation) > ACPT_BALLDEVIATION) {
           turn2ball(ballDeviation);
         } else if (cam.distance > ACPT_DISTANCE) {
           move2ball(cam.distance);
-        } else {//if (abs(magDeviation) > ACPT_DEVIATION) {
+        } else if (abs(magDeviation) > ACPT_MAGDEVIATION) {
           //turn2mag(magDeviation);
-          turnHook(magDeviation);
+          //turnHook(magDeviation);
+          ballRound(magDeviation);
         /*} else if (cam.goalPosition.deviation > 5) {
-          turn2goal();
+          turn2goal();*/
         } else {
-          kick();*/
+          kick();
         }
       } else if (mode == "BALL_HOOK") {
-        /*if (abs(ballDeviation) > ACPT_DEVIATION) {
+        /*if (abs(ballDeviation) > ACPT_BALLDEVIATION) {
           turn2ball(ballDeviation);
         } else if (cam.distance > ACPT_DISTANCE) {
           move2ball(cam.distance);
         } else {*/
           turnHook(magDeviation);
         //}
+      } else if (mode == "BALL_ROUND") {
+          ballRound(magDeviation);
       //robot 2
       } else if (mode == "GOAL_KEEPER") {
         if (abs(ballDeviation) > MAX_BALL_DEVIATION) {
@@ -735,11 +757,11 @@ void loop() {
         saveCalibration();
         idle = true;
       } else if (mode == "SEARCH_MAG") {
-        if (abs(magDeviation) > ACPT_DEVIATION) {
+        if (abs(magDeviation) > ACPT_MAGDEVIATION) {
           tesTmag(magDeviation);
         }
       } else if (mode == "CHASE_HALF") {
-        if (abs(ballDeviation) > ACPT_DEVIATION) {
+        if (abs(ballDeviation) > ACPT_BALLDEVIATION) {
           turn2ball(ballDeviation);
         } else if (cam.distance > ACPT_DISTANCE) {
           move2ball(cam.distance);
