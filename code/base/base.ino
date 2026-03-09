@@ -5,7 +5,7 @@
 DFRobot_BMM150_I2C bmm150(&Wire1, 0x13);
 Preferences prefs;
 
-#define BOT_ID 1 // 1 or 2
+#define BOT_ID 2 // 1 or 2
 
 #if BOT_ID == 1
 #include <Adafruit_SSD1306.h>
@@ -55,7 +55,7 @@ Preferences prefs;
 
 #define PRESS_DELAY 500   // ms
 #define SHOOT_DELAY 1000  // ms
-#define EXTRA_CORR 0
+#define CMD_DELAY 0
 
 #define ACPT_BALLDEVIATION 8 //acceptable ball deviation angle
 #define ACPT_MAGDEVIATION 10 //acceptable magnetic deviation angle
@@ -97,7 +97,6 @@ int accept_distance = ACPT_DISTANCE;
 int angs[15];         // sensors angles
 
 String Modes[] = {
-  "GOAL_SEARCH",
   "BALL_CHASE",
   "GOAL_KEEPER",
   "CALIBRATION",
@@ -107,6 +106,7 @@ String Modes[] = {
   "BALL_ROUND",
   "BALL_SEARCH",
   "MAG_SEARCH",
+  "GOAL_SEARCH",
   "SPEED_1",
   "SPEED_2",
   "SPEED_3"
@@ -350,7 +350,7 @@ bool move_timeout(int speed, int duration) {
   if (current_time > move_timer) {
     // set new timer
     // rump up/down + duration + extra
-    move_timer = current_time + speed * 2 + duration + EXTRA_CORR;
+    move_timer = current_time + speed * 2 + duration + CMD_DELAY;
     return true;
   }
   return false;
@@ -480,12 +480,13 @@ void shoot(){
 void kick() {
   int duration = 50;
   int speed = 255; //100;
-  int pause = 5000;
+  int pause = 3000;
   if (move_timeout(speed, duration + pause)) {
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, speed, speed, speed, duration);
+    int cmd_delay = 40;
+    delay(speed + duration + cmd_delay);
+    shoot();
   }
-  delay(speed*2 + duration); // cmd delay?
-  //shoot();
 }
 
 void getCompass() {
@@ -737,8 +738,6 @@ void loop() {
           int dev = magDeviation;
           if (cam_active) dev = 0.5 * magDeviation + 0.5 * cam.goalPosition.centerDeviation;
           ballRound(dev);
-        /*} else if (cam.goalPosition.deviation > 5) {
-          turn2goal();*/
         } else {
           kick();
         }
