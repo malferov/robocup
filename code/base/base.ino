@@ -38,6 +38,8 @@ Preferences prefs;
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
+#define CAM_WIDTH 160
+#define CAM_WIDTH_FL 160.0
 
 #define SDA_PIN 21
 #define SCL_PIN 22
@@ -79,6 +81,7 @@ typedef struct {
   int left;
   int right;
   int center;
+  int centerDeviation; // L negative; R positive; 30 degrees range
 } goalPositionT;
 
 typedef struct {
@@ -94,16 +97,16 @@ int accept_distance = ACPT_DISTANCE;
 int angs[15];         // sensors angles
 
 String Modes[] = {
-  "SEARCH_MAG",
-  "CHASE_HALF",
   "GOAL_SEARCH",
-  "GOAL_KEEPER",
   "BALL_CHASE",
+  "GOAL_KEEPER",
+  "CALIBRATION",
+  "CAM_ACTIVE",
+  "LINE_ACTIVE",
   "BALL_HOOK",
   "BALL_ROUND",
   "BALL_SEARCH",
-  "CALIBRATION",
-  "LINE_ACTIVE",
+  "MAG_SEARCH",
   "SPEED_1",
   "SPEED_2",
   "SPEED_3"
@@ -130,11 +133,7 @@ int magDeviation = 0;
 bool line_active = false;
 bool line_right = false;
 bool line_left = false;
-
-// debug
-unsigned long debug_timer;
-int debug_dir = 0;
-int debug_num = 0;
+bool cam_active = true;
 
 String getValue(String data, char separator, int index) {
   int found = 0;
@@ -211,12 +210,21 @@ void calcBallHeading() {
 void getCAM() {
   String command = Serial2.readStringUntil('\n');
   if (command[0] == 'L' || command[0] == 'R') {
-    char dir = getValue(command,':',0)[0];
-    int deviation = getValue(command,':',1).toInt();
+    //char dir = getValue(command,':',0)[0];
+    //int deviation = getValue(command,':',1).toInt();
     int left = getValue(command,':',2).toInt();
     int right = getValue(command,':',3).toInt();
     int center = getValue(command,':',4).toInt();
-    cam.goalPosition = goalPositionT(dir, deviation, left, right, center);
+    // calculate average 10/90
+    center = 0.1 * center + 0.9 * cam.goalPosition.center;
+    // recalc dir & dev
+    char dir = 'L';
+    if (center > CAM_WIDTH/2) dir = 'R';
+    int deviation = 8 * abs(center - CAM_WIDTH/2) / (CAM_WIDTH/2);
+    int centerDev = 30 * (center - CAM_WIDTH/2) / (CAM_WIDTH/2);
+    // set position
+    cam.goalPosition = goalPositionT(dir, deviation, left, right, center, centerDev);
+    // set distance
     int distance = getValue(command,':',5).toInt();
     // filter spikes
     if (abs(distance - cam.distance) < 10) {
@@ -255,8 +263,15 @@ void refreshDisplay() {
     display.setCursor(SCREEN_WIDTH-6*2, SCREEN_HEIGHT-8); // Size 1: 6x8 pixel area
     display.printf("%c%d", cam.goalPosition.dir, cam.goalPosition.deviation);
     int difference = cam.goalPosition.right - cam.goalPosition.left;
-    display.drawRect((SCREEN_WIDTH - difference) / 2, (SCREEN_HEIGHT - 30) / 2, difference, 30, WHITE);
-    display.fillRect(cam.goalPosition.center - 5, (SCREEN_HEIGHT - 50) / 2, 10, 50, WHITE);
+    const float k = SCREEN_WIDTH/CAM_WIDTH_FL;
+    display.drawRect(cam.goalPosition.left * k, (SCREEN_HEIGHT - 20) / 2, difference * k, 20, WHITE);
+    display.fillRect(cam.goalPosition.center * k - 5, (SCREEN_HEIGHT - 20) / 2, 10, 20, WHITE);
+    display.setCursor(0, 10);
+    display.printf("lcr %d %d %d d %d", cam.goalPosition.left, cam.goalPosition.center, cam.goalPosition.right, difference);
+    // debug
+    //display.setCursor(0, 50);
+    //display.printf("k c*k %.1f", k);
+
   } else if (mode == "BALL_CHASE" || mode == "BALL_HOOK" || mode == "BALL_ROUND") {
     display.setCursor(0, 20);
     display.printf("heading  %3d", ballHeading);
@@ -285,22 +300,14 @@ void refreshDisplay() {
   } else if (mode == "CALIBRATION") {
     display.setCursor(0, 20);
     display.printf("mag heading %3d", magHeading);
-  } else if (mode == "SEARCH_MAG") {
+  } else if (mode == "MAG_SEARCH") {
     display.setCursor(0, 20);
     display.printf("mag chase   %3d", magChase);
     display.setCursor(0, 30);
     display.printf("mag heading %3d", magHeading);
     display.setCursor(0, 40);
     display.printf("mag dev     %3d", magDeviation);
-  } else if (mode == "CHASE_HALF") {
-    display.setCursor(0, 20);
-    display.printf("heading  %3d", ballHeading);
-    display.setCursor(0, 30);
-    display.printf("distance %3d", cam.distance);
-    display.setCursor(0, 40);
-    display.printf("mag dev  %3d", magDeviation);
   }
-
   // display the current mode
   display.setCursor(0, 0);
   display.printf("%s", mode);
@@ -436,22 +443,19 @@ void ballRound (int deviation) {
   const int speed = max_speed * 1.5; // round vs base speed
 
   if (move_timeout(speed, duration)) {
-    int Fside = 0;//speed - curve;
-    int Bside = speed;// + curve;
+    int Fside = 0;
+    int Bside = speed;
     if (deviation < 0) {
       Bside = -Bside;
     }
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", Fside, -Bside, Bside, Fside, duration);
   }
-  //delay(speed*2 + duration);
-  //shoot();
-  //kick();
 }
 
 void move2ball(int distance) {
   // dir_move_all:max:min:direction:duration
   // max, min: 0..255
-  int speed = MIN_SPEED * 2 + 0.4 * distance; //0.2
+  int speed = MIN_SPEED * 2 + distance * 9 / max_speed; // old 0.4
   if (speed > max_speed) speed = max_speed;
   speed = speed * 1.5; // turn vs move speed
   const int direction = 0;
@@ -474,8 +478,8 @@ void shoot(){
 }
 
 void kick() {
-  int duration = 0; //50
-  int speed = 30;  //150
+  int duration = 50;
+  int speed = 255; //100;
   int pause = 5000;
   if (move_timeout(speed, duration + pause)) {
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, speed, speed, speed, duration);
@@ -523,7 +527,7 @@ void autoCalibrate() {
 
   unsigned long startTime = millis();
   message("Rotate robot slowly..");
-  int speed = MIN_SPEED + ONE_SPEED;
+  int speed = ONE_SPEED * 1.1;
 
   if (move_timeout(speed, CALIBRATION_TIME)) {
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", -speed, -speed, speed, speed, CALIBRATION_TIME);
@@ -667,7 +671,7 @@ void loop() {
     if (idle) {
       idle = false;
       changeMode(mode_num); // run selected mode
-      if (mode == "CHASE_BALL" || mode == "CHASE_HALF" || mode == "SEARCH_MAG") magChase = magHeading;
+      if (mode == "BALL_CHASE" || mode == "MAG_SEARCH") magChase = magHeading;
       else if (mode == "SPEED_1" || mode == "SPEED_2" || mode == "SPEED_3") {
         int selected_speed = mode_num-(mode_len-4); // 1, 2 or 3
         max_speed = MIN_SPEED + ONE_SPEED * selected_speed;
@@ -679,10 +683,19 @@ void loop() {
           line_active = false;
           line_right = false;
           line_left = false;
-          message("Line deactivated");
+          message("Line off");
         } else {
           line_active = true;
-          message("Line ***active***");
+          message("Line on");
+        }
+        idle = true;
+      } else if (mode == "CAM_ACTIVE") {
+        if (cam_active) {
+          cam_active = false;
+          message("CAM off");
+        } else {
+          cam_active = true;
+          message("CAM on");
         }
         idle = true;
       }
@@ -720,22 +733,17 @@ void loop() {
         } else if (cam.distance > ACPT_DISTANCE) {
           move2ball(cam.distance);
         } else if (abs(magDeviation) > ACPT_MAGDEVIATION) {
-          //turn2mag(magDeviation);
           //turnHook(magDeviation);
-          ballRound(magDeviation);
+          int dev = magDeviation;
+          if (cam_active) dev = 0.5 * magDeviation + 0.5 * cam.goalPosition.centerDeviation;
+          ballRound(dev);
         /*} else if (cam.goalPosition.deviation > 5) {
           turn2goal();*/
         } else {
           kick();
         }
       } else if (mode == "BALL_HOOK") {
-        /*if (abs(ballDeviation) > ACPT_BALLDEVIATION) {
-          turn2ball(ballDeviation);
-        } else if (cam.distance > ACPT_DISTANCE) {
-          move2ball(cam.distance);
-        } else {*/
           turnHook(magDeviation);
-        //}
       } else if (mode == "BALL_ROUND") {
           ballRound(magDeviation);
       //robot 2
@@ -746,7 +754,7 @@ void loop() {
           if (speed < -max_speed) speed = -max_speed;
           int duration = abs(ballDeviation) * 10;
           if (move_timeout(abs(speed), duration)) {
-            int corr = 0.1 * speed;
+            int corr = 0.05 * speed;
             if (ballDeviation < 0 ) corr = corr * 0.5; // left compensation
             Serial.printf("speed4:%d:%d:%d:%d:%d\n", -(speed+corr), speed-corr, -(speed-corr), speed+corr, duration);
           }
@@ -756,17 +764,9 @@ void loop() {
         autoCalibrate();
         saveCalibration();
         idle = true;
-      } else if (mode == "SEARCH_MAG") {
+      } else if (mode == "MAG_SEARCH") {
         if (abs(magDeviation) > ACPT_MAGDEVIATION) {
           tesTmag(magDeviation);
-        }
-      } else if (mode == "CHASE_HALF") {
-        if (abs(ballDeviation) > ACPT_BALLDEVIATION) {
-          turn2ball(ballDeviation);
-        } else if (cam.distance > ACPT_DISTANCE) {
-          move2ball(cam.distance);
-        } else {
-          changeMode(0); // search mag
         }
       }
     }
