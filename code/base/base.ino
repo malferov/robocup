@@ -5,7 +5,7 @@
 DFRobot_BMM150_I2C bmm150(&Wire1, 0x13);
 Preferences prefs;
 
-#define BOT_ID 2 // 1 or 2
+#define BOT_ID 1 // 1 or 2
 
 #if BOT_ID == 1
 #include <Adafruit_SSD1306.h>
@@ -50,18 +50,23 @@ Preferences prefs;
 #define SERIAL2_TX 17
 
 #define ANALOG_MAX 4095
-#define LINE_THRESHOLD 4050
 #define SEGMENT_ANGLE 24
 
 #define PRESS_DELAY 500   // ms
-#define SHOOT_DELAY 1000  // ms
+#define SHOOT_DELAY 500  // ms
 #define CMD_DELAY 0
 
+//deviation settings
 #define ACPT_BALLDEVIATION 8 //acceptable ball deviation angle
-#define ACPT_MAGDEVIATION 10 //acceptable magnetic deviation angle
-#define ACPT_DISTANCE 50 // mm
+#define ACPT_MAGDEVIATION 8 //acceptable magnetic deviation angle
+#define ACPT_DISTANCE 75 // mm
 #define ONE_SPEED 15
-#define MAX_BALL_DEVIATION 10 //degrees
+#define MAX_BALL_DEVIATION 8 //degrees
+//fix for the Goal keeper mode
+#define FIX_SPEED_LEFT 0 //<360
+#define FIX_SPEED_RIGHT 0 //>0
+//line config
+#define LINE_SPLIT 4000
 
 # if BOT_ID == 1
 #define MIN_SPEED 7
@@ -96,6 +101,9 @@ int ballDeviation = 0;
 int accept_distance = ACPT_DISTANCE;
 int angs[15];         // sensors angles
 
+int left_line = 0;
+int right_line = 0;
+
 String Modes[] = {
   "BALL_CHASE",
   "GOAL_KEEPER",
@@ -107,11 +115,12 @@ String Modes[] = {
   "BALL_SEARCH",
   "MAG_SEARCH",
   "GOAL_SEARCH",
+  "TEST",
   "SPEED_1",
   "SPEED_2",
   "SPEED_3"
 };
-int mode_len = 13;
+int mode_len = 14;
 int mode_num = 0;
 bool idle = true;
 String mode = Modes[mode_num];
@@ -131,8 +140,6 @@ int magHeading = 0;
 int magChase = 0;
 int magDeviation = 0;
 bool line_active = false;
-bool line_right = false;
-bool line_left = false;
 bool cam_active = true;
 
 String getValue(String data, char separator, int index) {
@@ -307,6 +314,11 @@ void refreshDisplay() {
     display.printf("mag heading %3d", magHeading);
     display.setCursor(0, 40);
     display.printf("mag dev     %3d", magDeviation);
+  } else if (mode == "LINE_ACTIVE") {
+    display.setCursor(0,20);
+    display.printf("Left line: %3d", left_line);
+    display.setCursor(0,40);
+    display.printf("Right line: %3d", right_line);
   }
   // display the current mode
   display.setCursor(0, 0);
@@ -459,8 +471,8 @@ void move2ball(int distance) {
   if (speed > max_speed) speed = max_speed;
   speed = speed * 1.5; // turn vs move speed
   const int direction = 0;
-  int duration = 1 * distance;  // ms
-  if (duration > 800) { //500
+  int duration = 1 * distance;
+  if (duration >= 800) {
     duration = 800;
   }
   if (move_timeout(speed, duration)) {
@@ -468,24 +480,24 @@ void move2ball(int distance) {
   }
 }
 
-void shoot(){
-  unsigned long current_time = millis();
-  // wait at least SHOOT_DELAY ms
-  if (current_time > shoot_timer) {
-    shoot_timer = current_time + SHOOT_DELAY;
-    Serial2.write("shoot\n");
-  }
-}
+// void shoot(){
+//   unsigned long current_time = millis();
+//   // wait at least SHOOT_DELAY ms
+//   if (current_time > shoot_timer) {
+//     shoot_timer = current_time + SHOOT_DELAY;
+//     Serial2.write("shoot\n");
+//   }
+// }
 
 void kick() {
   int duration = 50;
   int speed = 255; //100;
-  int pause = 3000;
+  int pause = 1000;
   if (move_timeout(speed, duration + pause)) {
     Serial.printf("speed4:%d:%d:%d:%d:%d\n", speed, speed, speed, speed, duration);
     int cmd_delay = 40;
     delay(speed + duration + cmd_delay);
-    shoot();
+    // shoot();
   }
 }
 
@@ -562,12 +574,8 @@ void saveCalibration() {
 }
 
 void getLine() {
-  line_right = false;
-  int val = analogRead(LINE_RIGHT);
-  if (val > LINE_THRESHOLD) line_right = true;
-  line_left = false;
-  val = analogRead(LINE_LEFT);
-  if (val > LINE_THRESHOLD) line_left = true;
+  right_line = analogRead(LINE_RIGHT);
+  left_line = analogRead(LINE_LEFT);
 }
 
 void setup() {
@@ -663,7 +671,8 @@ void loop() {
   magDeviation = magChase - magHeading;
   if (magDeviation > 180) magDeviation -= 360;
   if (magDeviation < -180) magDeviation += 360;
-  if (line_active) getLine();
+  // if (line_active) 
+  getLine();
 
   if (buttonPressed(MODE_BUTTON)) {
     if (idle) changeMode();
@@ -682,8 +691,6 @@ void loop() {
       } else if (mode == "LINE_ACTIVE") {
         if (line_active) {
           line_active = false;
-          line_right = false;
-          line_left = false;
           message("Line off");
         } else {
           line_active = true;
@@ -714,7 +721,7 @@ void loop() {
     if (abs(magDeviation) < 90) accept_distance += ACPT_DISTANCE * (1 - abs(magDeviation)/90);
 
     // lines
-    if (line_right || line_left) {
+    if (line_active && (left_line < LINE_SPLIT || right_line < LINE_SPLIT)) {
       int duration = 100;
       if (move_timeout(max_speed, duration)) {
         // move back
@@ -753,8 +760,8 @@ void loop() {
           if (speed < -max_speed) speed = -max_speed;
           int duration = abs(ballDeviation) * 10;
           if (move_timeout(abs(speed), duration)) {
-            int corr = 0.05 * speed;
-            if (ballDeviation < 0 ) corr = corr * 0.5; // left compensation
+            int corr = 0.04 * speed;
+            if (ballDeviation < 0 ) corr = corr * 0.7; // left compensation
             Serial.printf("speed4:%d:%d:%d:%d:%d\n", -(speed+corr), speed-corr, -(speed-corr), speed+corr, duration);
           }
         }
@@ -767,6 +774,15 @@ void loop() {
         if (abs(magDeviation) > ACPT_MAGDEVIATION) {
           tesTmag(magDeviation);
         }
+      } else if (mode == "TEST") {
+        delay(1000);
+        Serial.printf("speed4:%d:%d:%d:%d:%d\n", 100, 0, 0, 0, 1000);
+        delay(1000);
+        Serial.printf("speed4:%d:%d:%d:%d:%d\n", 0, 100, 0, 0, 1000);
+        delay(1000);
+        Serial.printf("speed4:%d:%d:%d:%d:%d\n", 0, 0, 100, 0, 1000);
+        delay(1000);
+        Serial.printf("speed4:%d:%d:%d:%d:%d\n", 0, 0, 0, 100, 1000);
       }
     }
   }
