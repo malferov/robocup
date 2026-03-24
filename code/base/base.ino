@@ -104,6 +104,8 @@ int angs[15];         // sensors angles
 int left_line = 0;
 int right_line = 0;
 
+int MS[] = {0,0,0,0};
+
 String Modes[] = {
   "BALL_CHASE",
   "GOAL_KEEPER",
@@ -155,6 +157,10 @@ String getValue(String data, char separator, int index) {
     }
   }
   return found>index ? data.substring(strIndex[0], strIndex[1]) : "";
+}
+
+void Target(int M1, int M2, int M3, int M4) {
+  Serial.printf("target:%d:%d:%d:%d\n", M1,M2,M3,M4);
 }
 
 int getIR(int channel) {
@@ -319,6 +325,13 @@ void refreshDisplay() {
     display.printf("Left line: %3d", left_line);
     display.setCursor(0,40);
     display.printf("Right line: %3d", right_line);
+  } else if (mode == "TEST") {
+    display.setCursor(0,20);
+    display.print(magDeviation*1);
+    for(int i = 1; i < 5; i++) {
+      display.setCursor(30 , i*10);
+      display.print(MS[i-1]);
+    }
   }
   // display the current mode
   display.setCursor(0, 0);
@@ -578,6 +591,15 @@ void getLine() {
   left_line = analogRead(LINE_LEFT);
 }
 
+void BetterTurnToMagnet() {
+  int sensetivity = 1;
+  int deviation = magDeviation * sensetivity;
+  MS[0] -= deviation;
+  MS[1] -= deviation;
+  MS[2] += deviation;
+  MS[3] += deviation;
+}
+
 void setup() {
 
   Wire.begin(SDA_PIN, SCL_PIN);
@@ -681,7 +703,7 @@ void loop() {
     if (idle) {
       idle = false;
       changeMode(mode_num); // run selected mode
-      if (mode == "BALL_CHASE" || mode == "MAG_SEARCH") magChase = magHeading;
+      if (mode == "BALL_CHASE" || mode == "MAG_SEARCH" || mode == "TEST") magChase = magHeading;
       else if (mode == "SPEED_1" || mode == "SPEED_2" || mode == "SPEED_3") {
         int selected_speed = mode_num-(mode_len-4); // 1, 2 or 3
         max_speed = MIN_SPEED + ONE_SPEED * selected_speed;
@@ -709,6 +731,9 @@ void loop() {
       }
     } else {
       idle = true; // off
+      if (mode == "TEST") {
+          Target(0,0,0,0);
+      }
     }
   }
 
@@ -775,14 +800,14 @@ void loop() {
           tesTmag(magDeviation);
         }
       } else if (mode == "TEST") {
-        delay(1000);
-        Serial.printf("speed4:%d:%d:%d:%d:%d\n", 100, 0, 0, 0, 1000);
-        delay(1000);
-        Serial.printf("speed4:%d:%d:%d:%d:%d\n", 0, 100, 0, 0, 1000);
-        delay(1000);
-        Serial.printf("speed4:%d:%d:%d:%d:%d\n", 0, 0, 100, 0, 1000);
-        delay(1000);
-        Serial.printf("speed4:%d:%d:%d:%d:%d\n", 0, 0, 0, 100, 1000);
+        //set everything to 0
+        for(int i = 0 ; i < 4 ; i++) {
+          MS[i] = 0;
+        }
+        //calculate speed
+        BetterTurnToMagnet();
+        //set speed
+        Target(MS[0],MS[1],MS[2],MS[3]);
       }
     }
   }
