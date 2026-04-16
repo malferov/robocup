@@ -55,6 +55,8 @@ Preferences prefs;
 #define PRESS_DELAY 500   // ms
 #define SHOOT_DELAY 500  // ms
 #define CMD_DELAY 0
+//sensitivety
+#define MAG_SENSETIVITY 1
 
 //deviation settings
 #define ACPT_BALLDEVIATION 8 //acceptable ball deviation angle
@@ -326,10 +328,16 @@ void refreshDisplay() {
     display.setCursor(0,40);
     display.printf("Right line: %3d", right_line);
   } else if (mode == "TEST") {
+    display.setCursor(0,10);
+    display.print("magHeading:");
     display.setCursor(0,20);
-    display.print(magDeviation*1);
+    display.print(magDeviation*MAG_SENSETIVITY);
+    display.setCursor(0,30);
+    display.print("BallHeading:");
+    display.setCursor(0,40);
+    display.print(ballHeading);
     for(int i = 1; i < 5; i++) {
-      display.setCursor(30 , i*10);
+      display.setCursor(70 , i*10);
       display.print(MS[i-1]);
     }
   }
@@ -591,13 +599,27 @@ void getLine() {
   left_line = analogRead(LINE_LEFT);
 }
 
+void MSadd(int M1,int M2,int M3,int M4) {
+  MS[0] += M1;
+  MS[1] += M2;
+  MS[2] += M3;
+  MS[3] += M4;
+}
+
 void BetterTurnToMagnet() {
-  int sensetivity = 1;
-  int deviation = magDeviation * sensetivity;
-  MS[0] -= deviation;
-  MS[1] -= deviation;
-  MS[2] += deviation;
-  MS[3] += deviation;
+  int deviation = magDeviation * MAG_SENSETIVITY;
+  MSadd(-deviation,-deviation,deviation,deviation);
+}
+
+void GoToBall(int speed){
+  if (ballHeading > 80 && ballHeading < 180) {
+    MSadd(-speed,-speed,-speed,-speed);
+  } else if(ballHeading < 280 && ballHeading > 180) {
+    MSadd(-speed,-speed,-speed,-speed);
+  }
+  // } else if(ballHeading <= 100 || ballHeading >= 260) {
+
+  // }
 }
 
 void setup() {
@@ -801,11 +823,32 @@ void loop() {
         }
       } else if (mode == "TEST") {
         //set everything to 0
-        for(int i = 0 ; i < 4 ; i++) {
+        for (int i = 0; i < 4; i++) {
           MS[i] = 0;
         }
-        //calculate speed
-        BetterTurnToMagnet();
+        int speed = abs(ballDeviation) * 0.8;
+
+        if (speed > 255) {
+          speed = 255;
+        }
+
+        if (abs(magDeviation) > 15) {
+          BetterTurnToMagnet();
+        } else {
+          if (ballHeading > 80 && ballHeading < 280) {
+            GoToBall(speed);
+          } else {
+            if (ballHeading > 10 && ballHeading < 350) {
+              if (ballHeading > 0 && ballHeading < 180) {
+                MSadd(-speed,speed,-speed,speed);
+              } else if (ballHeading > 180 && ballHeading < 360) {
+                MSadd(speed,-speed,speed,-speed);
+              }
+            } else {
+
+            }
+          }
+        }
         //set speed
         Target(MS[0],MS[1],MS[2],MS[3]);
       }
