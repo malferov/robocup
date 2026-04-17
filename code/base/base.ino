@@ -305,8 +305,9 @@ void changeMode(int m = -1) {
   mode = Modes[mode_num];
 }
 
-void kick() {
-  
+void shoot(int speed){
+  MSadd(speed,speed,speed,speed);
+  Serial2.write("shoot\n");
 }
 
 bool move_timeout(int speed, int duration) {
@@ -577,9 +578,11 @@ void loop() {
         MS[i] = 0;
       }
       int speed = abs(ballDeviation) * 0.8;
-
+      int acceleration = 75;
       if (speed > 255) {
         speed = 255;
+      } else if (speed <= 30) {
+        speed = 30;
       }
 
       if (abs(magDeviation) > 15) {
@@ -588,14 +591,19 @@ void loop() {
         if (ballHeading >= 80 && ballHeading <= 280) {
           GoToBall(speed);
         } else {
-          if (ballHeading > 10 && ballHeading < 350) {
+          if (ballHeading > 20 && ballHeading < 340) {
             if (ballHeading > 0 && ballHeading < 180) {
               MSadd(-speed,speed,-speed,speed);
             } else if (ballHeading > 180 && ballHeading < 360) {
               MSadd(speed,-speed,speed,-speed);
             }
           } else {
-
+            // positioned at ball
+            if (cam.distance > 50) {
+              MSadd(acceleration,acceleration,acceleration,acceleration);
+            } else {
+              shoot(150);
+            }
           }
         }
       }
