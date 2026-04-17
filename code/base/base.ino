@@ -111,8 +111,9 @@ int MS[] = {0,0,0,0};
 String Modes[] = {
   "CALIBRATION",
   "TEST",
+  "LINE_ACTIVE"
 };
-int mode_len = 2;
+int mode_len = 3;
 int mode_num = 0;
 bool idle = true;
 String mode = Modes[mode_num];
@@ -131,7 +132,7 @@ float mag_y_offset = 0;
 int magHeading = 0;
 int magChase = 0;
 int magDeviation = 0;
-bool line_active = false;
+bool line_active = true;
 bool cam_active = true;
 
 String getValue(String data, char separator, int index) {
@@ -268,6 +269,11 @@ void refreshDisplay() {
       display.setCursor(70 , i*10);
       display.print(MS[i-1]);
     }
+  } else if (mode == "LINE_ACTIVE") {
+    display.setCursor(0,20);
+    display.printf("Left line: %3d", left_line);
+    display.setCursor(0,40);
+    display.printf("Right line: %3d", right_line);
   }
   // display the current mode
   display.setCursor(0, 0);
@@ -306,8 +312,11 @@ void changeMode(int m = -1) {
 }
 
 void shoot(int speed){
-  MSadd(speed,speed,speed,speed);
+  Target(speed,speed,speed,speed);
   Serial2.write("shoot\n");
+  delay(200);
+  Target(0,0,0,0);
+  delay(500);
 }
 
 bool move_timeout(int speed, int duration) {
@@ -412,14 +421,7 @@ void BetterTurnToMagnet() {
 }
 
 void GoToBall(int speed){
-  if (ballHeading > 80 && ballHeading < 180) {
-    MSadd(-speed,-speed,-speed,-speed);
-  } else if(ballHeading < 280 && ballHeading > 180) {
-    MSadd(-speed,-speed,-speed,-speed);
-  }
-  // } else if(ballHeading <= 100 || ballHeading >= 260) {
-
-  // }
+  MSadd(-speed,-speed,-speed,-speed);
 }
 
 void setup() {
@@ -515,7 +517,6 @@ void loop() {
   magDeviation = magChase - magHeading;
   if (magDeviation > 180) magDeviation -= 360;
   if (magDeviation < -180) magDeviation += 360;
-  // if (line_active) 
   getLine();
 
   if (buttonPressed(MODE_BUTTON)) {
@@ -564,8 +565,17 @@ void loop() {
   // actions
   if (!idle) {
 
-    int accept_distance = 0.6 * ACPT_DISTANCE;
-    if (abs(magDeviation) < 90) accept_distance += ACPT_DISTANCE * (1 - abs(magDeviation)/90);
+    // lines
+    if (line_active && (left_line < LINE_SPLIT || right_line < LINE_SPLIT)) {
+      // reverse and stop
+      for (int i = 0; i < 4; i++) {
+        MS[i] = -MS[i];
+      }
+      Target(MS[0],MS[1],MS[2],MS[3]);
+      delay(500);
+      Target(0,0,0,0);
+      delay(300);
+    }
 
     if (mode == "CALIBRATION") {
       message("Auto calibration...");
@@ -577,33 +587,27 @@ void loop() {
       for (int i = 0; i < 4; i++) {
         MS[i] = 0;
       }
-      int speed = abs(ballDeviation) * 0.8;
+      int speed = abs(ballDeviation) * 1;//0.8;
       int acceleration = 75;
       if (speed > 255) {
         speed = 255;
-      } else if (speed <= 30) {
-        speed = 30;
       }
-
-      if (abs(magDeviation) > 15) {
-        BetterTurnToMagnet();
+      BetterTurnToMagnet();
+      if (ballHeading > 80 && ballHeading < 280) {
+        GoToBall(speed);
       } else {
-        if (ballHeading >= 80 && ballHeading <= 280) {
-          GoToBall(speed);
+        if (ballHeading > 20 && ballHeading < 340) {
+          if (ballHeading >= 0 && ballHeading < 180) {
+            MSadd(-speed,speed,-speed,speed);
+          } else if (ballHeading >= 180 && ballHeading < 360) {
+            MSadd(speed,-speed,speed,-speed);
+          }
         } else {
-          if (ballHeading > 20 && ballHeading < 340) {
-            if (ballHeading > 0 && ballHeading < 180) {
-              MSadd(-speed,speed,-speed,speed);
-            } else if (ballHeading > 180 && ballHeading < 360) {
-              MSadd(speed,-speed,speed,-speed);
-            }
+          // positioned at ball
+          if (cam.distance > 50) {
+            MSadd(acceleration,acceleration,acceleration,acceleration);
           } else {
-            // positioned at ball
-            if (cam.distance > 50) {
-              MSadd(acceleration,acceleration,acceleration,acceleration);
-            } else {
-              shoot(150);
-            }
+            shoot(150);
           }
         }
       }
