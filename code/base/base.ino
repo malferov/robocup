@@ -262,6 +262,8 @@ void refreshDisplay() {
     display.print("BallHeading:");
     display.setCursor(0,40);
     display.print(ballHeading);
+    display.setCursor(0, 50);
+    display.printf("distance %3d", cam.distance);
     for(int i = 1; i < 5; i++) {
       display.setCursor(70 , i*10);
       display.print(MS[i-1]);
