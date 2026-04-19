@@ -67,7 +67,7 @@ Preferences prefs;
 #define FIX_SPEED_LEFT 0 //<360
 #define FIX_SPEED_RIGHT 0 //>0
 //line config
-#define LINE_SPLIT 4000
+#define LINE_THRESHOLD 4095
 
 # if BOT_ID == 1
 #define MIN_SPEED 7
@@ -315,7 +315,7 @@ void shoot(int speed){
   Serial2.write("shoot\n");
   delay(200);
   Target(0,0,0,0);
-  delay(500);
+  delay(200);
 }
 
 bool move_timeout(int speed, int duration) {
@@ -420,6 +420,9 @@ void BetterTurnToMagnet() {
 }
 
 void GoToBall(int speed){
+  if (speed > 100) {
+    speed = 100;
+  }
   MSadd(-speed,-speed,-speed,-speed);
 }
 
@@ -565,15 +568,33 @@ void loop() {
   if (!idle) {
 
     // lines
-    if (line_active && (left_line < LINE_SPLIT || right_line < LINE_SPLIT)) {
-      // reverse and stop
-      for (int i = 0; i < 4; i++) {
-        MS[i] = -MS[i];
+    if (line_active) {
+      if (right_line == LINE_THRESHOLD && left_line == LINE_THRESHOLD) {
+        // shift ahead
+        Target(50,50,50,50);
+        delay(50);
+        if (right_line == LINE_THRESHOLD && left_line == LINE_THRESHOLD) {
+          // still white -> reverse
+          Target(-50,-50,-50,-50);
+          delay(400);
+          Target(0,0,0,0);
+        } else {
+          // left own white goal area -> forward
+          Target(50,50,50,50);
+          delay(400);
+          Target(0,0,0,0);
+        }
+      } else if (right_line == LINE_THRESHOLD) {
+        // jog left
+        Target(50,-50,50,-50);
+        delay(200);
+        Target(0,0,0,0);
+      } else if (left_line == LINE_THRESHOLD) {
+        // jog right
+        Target(-50,50,-50,50);
+        delay(200);
+        Target(0,0,0,0);
       }
-      Target(MS[0],MS[1],MS[2],MS[3]);
-      delay(500);
-      Target(0,0,0,0);
-      delay(300);
     }
 
     if (mode == "CALIBRATION") {
