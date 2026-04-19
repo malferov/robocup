@@ -9,8 +9,7 @@ Preferences prefs;
 
 #if BOT_ID == 1
 #include <Adafruit_SSD1306.h>
-#define BOT_ID 1
-#define MUX_SIG 15
+#define MUX_SIG 26
 #define MUX_S3 2
 #define MUX_S2 4
 #define MUX_S1 5
@@ -469,7 +468,7 @@ void setup() {
 
   // compass
   #if BOT_ID == 1
-  #define W2_SDA 13
+  #define W2_SDA 27
   #else
   #define W2_SDA 12
   #endif
